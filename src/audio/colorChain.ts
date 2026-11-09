@@ -10,9 +10,9 @@ export type ColorSettings = {
 export type ColorChain = {
   input: GainNode;
   octaveInput: GainNode;
+  doubleInput: GainNode;
   apply: (settings: ColorSettings) => void;
   attackSeconds: () => number;
-  bodyAmount: () => number;
 };
 
 const REVERB_SECONDS = 2.8;
@@ -24,6 +24,8 @@ const THIN_HIGHPASS = 1400;
 const MAX_SOFT_ATTACK = 0.35;
 const CURVE_SIZE = 2048;
 const RAMP = 0.08;
+const OCTAVE_LEVEL = 0.7;
+const DOUBLE_LEVEL = 0.6;
 
 export const NEUTRAL_COLOR: ColorSettings = { brightness: 0, space: 0, roughness: 0, body: 0 };
 
@@ -61,6 +63,7 @@ export const createColorChain = (): ColorChain => {
   const { ctx, master } = getEngine();
   const input = ctx.createGain();
   const octaveInput = ctx.createGain();
+  const doubleInput = ctx.createGain();
   const shaper = ctx.createWaveShaper();
   const driveCompensation = ctx.createGain();
   const lowpass = ctx.createBiquadFilter();
@@ -78,6 +81,7 @@ export const createColorChain = (): ColorChain => {
   shaper.oversample = '4x';
   input.connect(shaper);
   octaveInput.connect(shaper);
+  doubleInput.connect(shaper);
   shaper.connect(driveCompensation);
   driveCompensation.connect(lowpass);
   lowpass.connect(shelf);
@@ -102,13 +106,15 @@ export const createColorChain = (): ColorChain => {
     ramp(driveCompensation.gain, 1 - rough * 0.55, ctx);
     ramp(dry.gain, 1 - wetAmount * 0.5, ctx);
     ramp(wet.gain, wetAmount, ctx);
+    ramp(octaveInput.gain, Math.max(0, settings.body) * OCTAVE_LEVEL, ctx);
+    ramp(doubleInput.gain, Math.max(0, settings.body) * DOUBLE_LEVEL, ctx);
   };
   apply(NEUTRAL_COLOR);
   return {
     input,
     octaveInput,
+    doubleInput,
     apply,
     attackSeconds: () => Math.max(0, -current.roughness) * MAX_SOFT_ATTACK,
-    bodyAmount: () => Math.max(0, current.body),
   };
 };

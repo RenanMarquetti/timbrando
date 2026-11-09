@@ -1,20 +1,24 @@
 import sampleMap from './sampleMap.json';
 
-export type NoteName = 'A3' | 'A4';
-
 export type Instrument = {
   id: string;
   label: string;
+  sustained: boolean;
+};
+
+export type Family = {
+  label: string;
+  instruments: Instrument[];
 };
 
 type SampleRef = {
+  midi: number;
   file: string;
-  shift: number;
 };
 
 type PrepareArgs = {
   instrumentId: string;
-  note: NoteName;
+  midi: number;
 };
 
 type FadeArgs = {
@@ -22,24 +26,53 @@ type FadeArgs = {
   seconds: number;
 };
 
-export const INSTRUMENTS: Instrument[] = [
-  { id: 'violin', label: 'Violino' },
-  { id: 'cello', label: 'Violoncelo' },
-  { id: 'flute', label: 'Flauta' },
-  { id: 'clarinet', label: 'Clarinete' },
-  { id: 'saxophone', label: 'Saxofone' },
-  { id: 'trumpet', label: 'Trompete' },
-  { id: 'french-horn', label: 'Trompa' },
-  { id: 'bassoon', label: 'Fagote' },
-  { id: 'piano', label: 'Piano' },
-  { id: 'guitar-nylon', label: 'Violão' },
-  { id: 'harp', label: 'Harpa' },
-  { id: 'organ', label: 'Órgão' },
-  { id: 'harmonium', label: 'Harmônio' },
+/** Families and order of the MSA (Método Simplificado de Aprendizagem Musical), plus three extras for the attack. */
+export const FAMILIES: Family[] = [
+  { label: 'Teclados', instruments: [{ id: 'organ', label: 'Órgão', sustained: true }] },
+  {
+    label: 'Cordas',
+    instruments: [
+      { id: 'violin', label: 'Violino', sustained: true },
+      { id: 'viola', label: 'Viola', sustained: true },
+      { id: 'cello', label: 'Violoncelo', sustained: true },
+    ],
+  },
+  {
+    label: 'Madeiras',
+    instruments: [
+      { id: 'flute', label: 'Flauta', sustained: true },
+      { id: 'oboe', label: 'Oboé', sustained: true },
+      { id: 'bassoon', label: 'Fagote', sustained: true },
+      { id: 'clarinet', label: 'Clarinete', sustained: true },
+      { id: 'saxophone', label: 'Saxofone', sustained: true },
+    ],
+  },
+  {
+    label: 'Metais',
+    instruments: [
+      { id: 'trumpet', label: 'Trompete', sustained: true },
+      { id: 'french-horn', label: 'Trompa', sustained: true },
+      { id: 'trombone', label: 'Trombone', sustained: true },
+      { id: 'tuba', label: 'Tuba', sustained: true },
+    ],
+  },
+  {
+    label: 'Extras',
+    instruments: [
+      { id: 'piano', label: 'Piano', sustained: false },
+      { id: 'guitar-nylon', label: 'Violão', sustained: false },
+      { id: 'harp', label: 'Harpa', sustained: false },
+    ],
+  },
 ];
+
+export const INSTRUMENTS: Instrument[] = FAMILIES.flatMap((family) => family.instruments);
 
 export const CLIP_SECONDS = 2.6;
 export const TARGET_RMS = 0.08;
+export const LOWEST_MIDI = 48;
+export const HIGHEST_MIDI = 72;
+const MAX_SHIFT = 2;
 const RMS_WINDOW_START = 0.15;
 const RMS_WINDOW_END = 1.2;
 const END_FADE_SECONDS = 0.35;
@@ -48,9 +81,25 @@ const SAMPLE_RATE = 44100;
 const rawCache = new Map<string, Promise<AudioBuffer>>();
 const preparedCache = new Map<string, Promise<AudioBuffer>>();
 
-const samples = sampleMap as Record<string, Partial<Record<NoteName, SampleRef>>>;
+const samples = sampleMap as Record<string, SampleRef[]>;
 
-export const hasNote = (instrumentId: string, note: NoteName): boolean => Boolean(samples[instrumentId]?.[note]);
+const nearestSample = (instrumentId: string, midi: number): SampleRef | null => {
+  const refs = samples[instrumentId] ?? [];
+  const best = refs.reduce<SampleRef | null>((closest, ref) => {
+    if (!closest || Math.abs(ref.midi - midi) < Math.abs(closest.midi - midi)) {
+      return ref;
+    }
+    return closest;
+  }, null);
+  if (!best || Math.abs(best.midi - midi) > MAX_SHIFT) {
+    return null;
+  }
+  return best;
+};
+
+export const hasNote = (instrumentId: string, midi: number): boolean => nearestSample(instrumentId, midi) !== null;
+
+export const instrumentLabel = (instrumentId: string): string => INSTRUMENTS.find((item) => item.id === instrumentId)?.label ?? instrumentId;
 
 const decodeFile = async (file: string): Promise<AudioBuffer> => {
   const response = await fetch(`samples/${file}`);
@@ -131,18 +180,18 @@ const renderShifted = async (raw: AudioBuffer, shift: number): Promise<AudioBuff
 };
 
 const buildPrepared = async (args: PrepareArgs): Promise<AudioBuffer> => {
-  const ref = samples[args.instrumentId]?.[args.note];
+  const ref = nearestSample(args.instrumentId, args.midi);
   if (!ref) {
-    throw new Error(`No sample for ${args.instrumentId} ${args.note}`);
+    throw new Error(`No sample for ${args.instrumentId} ${args.midi}`);
   }
   const raw = await loadRaw(ref.file);
-  const shifted = await renderShifted(raw, ref.shift);
+  const shifted = await renderShifted(raw, args.midi - ref.midi);
   return normalizeRms(fadeOut({ buffer: shifted, seconds: END_FADE_SECONDS }));
 };
 
 /** Same note, same length, same strength: only the instrument changes. */
 export const loadPrepared = (args: PrepareArgs): Promise<AudioBuffer> => {
-  const key = `${args.instrumentId}:${args.note}`;
+  const key = `${args.instrumentId}:${args.midi}`;
   const cached = preparedCache.get(key);
   if (cached) {
     return cached;

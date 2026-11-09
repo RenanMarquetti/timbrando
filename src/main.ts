@@ -1,97 +1,71 @@
 import './styles.css';
-import { getActiveAnalyser, getEngine } from './audio/engine';
-import { readAnalyser } from './audio/meter';
+import { getEngine, isMicOn, onMicChange, startMic, stopMic } from './audio/engine';
+import { readListening } from './audio/meter';
+import { stopAll } from './audio/player';
 import { createAttack } from './sections/attack';
 import { createColors } from './sections/colors';
 import { createLab } from './sections/lab';
 import { createSameNote } from './sections/sameNote';
 import { h, selectInGroup } from './ui/dom';
 import { createMeterBar } from './ui/meterBar';
+import { createSettings, readPreferences, savePreferences } from './ui/settings';
 import { createSpectrum } from './ui/spectrum';
 
-type TabId = 'ouvir' | 'laboratorio' | 'sobre';
-
-type Theme = 'auto' | 'light' | 'dark';
+type TabId = 'som' | 'fundamento';
 
 const APP_NAME = 'Timbrando';
-const THEME_KEY = 'timbrando-theme';
-const THEME_ORDER: Theme[] = ['auto', 'light', 'dark'];
-const THEME_ICONS: Record<Theme, string> = { auto: '◐', light: '☀', dark: '☾' };
-const THEME_LABELS: Record<Theme, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
+const APP_VERSION = '0.2.0';
+const TAB_LABELS: Record<TabId, string> = { som: 'Som', fundamento: 'Fundamento' };
 
-const readTheme = (): Theme => {
+const turnMicOn = async (): Promise<void> => {
   try {
-    const saved = window.localStorage.getItem(THEME_KEY);
-    if (saved === 'light' || saved === 'dark') {
-      return saved;
-    }
+    await startMic();
   } catch {
-    return 'auto';
-  }
-  return 'auto';
-};
-
-const applyTheme = (theme: Theme): void => {
-  if (theme === 'auto') {
-    delete document.documentElement.dataset.theme;
-  }
-  if (theme !== 'auto') {
-    document.documentElement.dataset.theme = theme;
-  }
-  try {
-    window.localStorage.setItem(THEME_KEY, theme);
-  } catch {
-    return;
+    savePreferences({ micOn: false });
   }
 };
 
-const createThemeToggle = (): HTMLButtonElement => {
-  let theme = readTheme();
-  applyTheme(theme);
-  const icon = h('span', { 'aria-hidden': 'true' }, THEME_ICONS[theme]);
-  const text = h('span', { class: 'theme-text' }, THEME_LABELS[theme]);
-  const button = h('button', { type: 'button', class: 'theme-toggle', title: 'Tema', 'aria-label': `Tema: ${THEME_LABELS[theme]}` }, icon, text);
+const createMicToggle = (): HTMLButtonElement => {
+  const label = h('span', { class: 'mic-label' }, 'Microfone');
+  const button = h('button', { type: 'button', class: 'mic-toggle', 'aria-pressed': 'false', title: 'Ligar ou desligar o microfone' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), '🎤 ', label);
+  const render = (on: boolean): void => {
+    button.setAttribute('aria-pressed', String(on));
+    button.setAttribute('aria-label', on ? 'Microfone ligado' : 'Microfone desligado');
+  };
+  onMicChange(render);
   button.addEventListener('click', () => {
-    theme = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
-    applyTheme(theme);
-    icon.textContent = THEME_ICONS[theme];
-    text.textContent = THEME_LABELS[theme];
-    button.setAttribute('aria-label', `Tema: ${THEME_LABELS[theme]}`);
-    window.dispatchEvent(new Event('resize'));
+    if (isMicOn()) {
+      stopMic();
+      savePreferences({ micOn: false });
+      return;
+    }
+    savePreferences({ micOn: true });
+    void turnMicOn();
   });
   return button;
 };
 
-const createAbout = (): HTMLElement =>
-  h(
-    'section',
-    { class: 'card' },
-    h('h2', {}, `Sobre o ${APP_NAME}`),
-    h('p', {}, 'Feito para aulas de música: primeiro ouvir, depois nomear.'),
-    h('p', {}, h('strong', {}, 'Ouvir'), ': sons com a mesma altura, a mesma intensidade e a mesma duração. O medidor no topo mostra isso enquanto o som toca.'),
-    h('p', {}, h('strong', {}, 'Laboratório'), ': o espectro e um sintetizador para montar timbres mexendo nos harmônicos, no começo do som e no abafamento.'),
-    h('h3', {}, 'Créditos dos sons'),
-    h('p', { class: 'small' }, 'Amostras de instrumentos: ', h('a', { href: 'https://github.com/nbrosowsky/tonejs-instruments', target: '_blank', rel: 'noopener' }, 'tonejs-instruments'), ' (Nicholaus Brosowsky), licença CC BY 3.0, a partir de VSCO 2 Community Edition, University of Iowa Electronic Music Studios, Karoryfer e Freesound (flcellogrl, quartertone, donyaquick). As vogais são sintetizadas pelo próprio app.'),
-    h('p', { class: 'small' }, 'Detecção de altura: ', h('a', { href: 'https://github.com/ianprime0509/pitchy', target: '_blank', rel: 'noopener' }, 'pitchy'), ' (0BSD).'),
-  );
-
-const createTabs = (panels: Record<TabId, HTMLElement>): HTMLElement => {
+const createTabs = (panels: Record<TabId, HTMLElement>, onShow: (tab: TabId) => void): HTMLElement => {
   const nav = h('nav', { class: 'tabs', role: 'tablist' });
-  const labels: Record<TabId, string> = { ouvir: 'Ouvir', laboratorio: 'Laboratório', sobre: 'Sobre' };
-  const show = (tab: TabId, button: HTMLElement): void => {
-    (Object.keys(panels) as TabId[]).forEach((id) => {
-      panels[id].hidden = id !== tab;
+  (Object.keys(TAB_LABELS) as TabId[]).forEach((tab) => {
+    const button = h('button', { type: 'button', role: 'tab', 'aria-pressed': String(tab === 'som') }, TAB_LABELS[tab]);
+    button.addEventListener('click', () => {
+      stopAll();
+      (Object.keys(panels) as TabId[]).forEach((id) => {
+        panels[id].hidden = id !== tab;
+      });
+      selectInGroup(nav, button);
+      onShow(tab);
+      window.dispatchEvent(new Event('resize'));
+      window.scrollTo({ top: 0 });
     });
-    selectInGroup(nav, button);
-    window.dispatchEvent(new Event('resize'));
-    window.scrollTo({ top: 0 });
-  };
-  (Object.keys(labels) as TabId[]).forEach((tab) => {
-    const button = h('button', { type: 'button', role: 'tab', 'aria-pressed': String(tab === 'ouvir') }, labels[tab]);
-    button.addEventListener('click', () => show(tab, button));
     nav.append(button);
   });
   return nav;
+};
+
+const trackStickyHeight = (sticky: HTMLElement): void => {
+  new ResizeObserver(() => document.documentElement.style.setProperty('--sticky-h', `${sticky.offsetHeight}px`)).observe(sticky);
 };
 
 const start = (): void => {
@@ -99,24 +73,32 @@ const start = (): void => {
   const meter = createMeterBar();
   const spectrum = createSpectrum();
   const panels: Record<TabId, HTMLElement> = {
-    ouvir: h('main', { class: 'panel' }, createSameNote(), createColors(), createAttack()),
-    laboratorio: h('main', { class: 'panel', hidden: true }, createLab(spectrum)),
-    sobre: h('main', { class: 'panel', hidden: true }, createAbout()),
+    som: h('main', { class: 'panel' }, createSameNote(), createAttack()),
+    fundamento: h('main', { class: 'panel', hidden: true }, spectrum.element, createLab(), createColors()),
   };
+  const settings = createSettings({ appName: APP_NAME, version: APP_VERSION, onHistoryChange: meter.showHistory });
+  const tabs = createTabs(panels, (tab) => {
+    meter.element.hidden = tab !== 'som';
+  });
   const header = h(
     'div',
     { class: 'top-band' },
-    h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'logo', 'aria-hidden': 'true' }, '◐'), APP_NAME), h('div', { class: 'top-actions' }, createTabs(panels), createThemeToggle())),
+    h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'logo', 'aria-hidden': 'true' }, '◐'), APP_NAME), tabs, createMicToggle(), settings),
   );
-  root.append(h('div', { class: 'sticky' }, header, meter.element), panels.ouvir, panels.laboratorio, panels.sobre);
+  const sticky = h('div', { class: 'sticky' }, header, meter.element);
+  root.append(sticky, panels.som, panels.fundamento);
+  trackStickyHeight(sticky);
   document.addEventListener('pointerdown', () => getEngine(), { once: true });
+  if (readPreferences().micOn) {
+    void turnMicOn();
+  }
   const loop = (): void => {
-    const reading = readAnalyser(getActiveAnalyser());
-    meter.update(reading);
-    spectrum.update(reading);
+    const listening = readListening();
+    meter.update(listening.reading, listening.source);
+    spectrum.update(listening.reading, listening.analyser);
     window.requestAnimationFrame(loop);
   };
-  document.addEventListener('pointerdown', () => window.requestAnimationFrame(loop), { once: true });
+  window.requestAnimationFrame(loop);
 };
 
 start();

@@ -1,54 +1,58 @@
 import { getEngine } from '../audio/engine';
 import { playBuffer, stopAll } from '../audio/player';
-import { hasNote, INSTRUMENTS, loadPrepared } from '../audio/samples';
+import { hasNote, loadPrepared } from '../audio/samples';
 import { HARMONIC_COUNT, startNote, waveShape, type SynthNote, type SynthParams } from '../audio/synth';
 import { DEFAULT_PARAMS, PRESETS, WAVES, type WaveName } from '../audio/synthPresets';
+import { midiToHz } from '../audio/vowels';
+import { noteName, radioGroup, toggleButton } from '../ui/controls';
 import { cssVar, fitCanvas, h } from '../ui/dom';
-import type { SpectrumView } from '../ui/spectrum';
+import { drawEnvelope, drawFilter } from '../ui/graphs';
 
 type NumericKey = Exclude<keyof SynthParams, 'harmonics' | 'signs'>;
 
 type SliderSpec = {
   key: NumericKey;
   label: string;
+  help: string;
   min: number;
   max: number;
   log?: boolean;
   format: (value: number) => string;
 };
 
-type Key = {
+type WhiteKey = {
   midi: number;
-  black: boolean;
+  black: number | null;
 };
 
 const SLIDER_STEPS = 1000;
 const WAVE_POINTS = 400;
-const LOWEST_MIDI = 57;
-const KEY_COUNT = 13;
-const BLACK_KEYS = new Set([1, 3, 6, 8, 10]);
-const NOTE_LETTERS = ['Dó', '', 'Ré', '', 'Mi', 'Fá', '', 'Sol', '', 'Lá', '', 'Si'];
+const ICON_POINTS = 60;
+const BASE_MIDI = 57;
+const WHITE_OFFSETS = [0, 2, 3, 5, 7, 8, 10, 12];
+const BLACK_AFTER = [0, 2, 3, 5, 6];
+const CUSTOM_WAVE = 'Personalizada: você montou a sua própria receita de harmônicos.';
 
-const seconds = (value: number): string => (value < 1 ? `${Math.round(value * 1000)} ms` : `${value.toFixed(2)} s`);
+const seconds = (value: number): string => (value < 1 ? `${Math.round(value * 1000)} ms` : `${value.toFixed(2).replace('.', ',')} s`);
 const percent = (value: number): string => `${Math.round(value * 100)}%`;
 
 const ENVELOPE: SliderSpec[] = [
-  { key: 'attack', label: 'Ataque', min: 0.003, max: 1.5, log: true, format: seconds },
-  { key: 'decay', label: 'Queda', min: 0.01, max: 2, log: true, format: seconds },
-  { key: 'sustain', label: 'Sustentação', min: 0, max: 1, format: percent },
-  { key: 'release', label: 'Final', min: 0.01, max: 3, log: true, format: seconds },
-  { key: 'noise', label: 'Ruído do começo', min: 0, max: 1, format: percent },
+  { key: 'attack', label: 'Ataque', help: 'Quanto tempo o som leva para chegar ao volume máximo. Curto = golpe (piano, violão); longo = entra devagar (arco, sopro suave).', min: 0.003, max: 1.5, log: true, format: seconds },
+  { key: 'decay', label: 'Queda', help: 'Quanto tempo leva para cair do máximo até o volume de sustentação.', min: 0.01, max: 2, log: true, format: seconds },
+  { key: 'sustain', label: 'Sustentação', help: 'O volume que fica enquanto a tecla está apertada. 0% = a nota morre sozinha, como no piano e no violão.', min: 0, max: 1, format: percent },
+  { key: 'release', label: 'Final', help: 'Quanto tempo o som leva para sumir depois que você solta a tecla.', min: 0.01, max: 3, log: true, format: seconds },
+  { key: 'noise', label: 'Ruído do começo', help: 'O chiado que existe no instante em que a nota nasce: o sopro na flauta, o arco raspando na corda, o martelo no piano.', min: 0, max: 1, format: percent },
 ];
 
 const FILTER: SliderSpec[] = [
-  { key: 'cutoff', label: 'Abafamento (brilho)', min: 150, max: 16000, log: true, format: (value) => `${Math.round(value)} Hz` },
-  { key: 'resonance', label: 'Ressonância', min: 0.5, max: 15, log: true, format: (value) => value.toFixed(1) },
-  { key: 'filterOpening', label: 'Abrir no começo', min: 0, max: 1, format: percent },
+  { key: 'cutoff', label: 'Abafamento', help: 'A partir dessa frequência os harmônicos vão sendo cortados. Mais à esquerda = mais abafado, como tocar com surdina ou ouvir de outra sala.', min: 150, max: 16000, log: true, format: (value) => `corta acima de ${Math.round(value)} Hz` },
+  { key: 'resonance', label: 'Ressonância', help: 'Realça os harmônicos bem no ponto do corte. Valores altos deixam o som anasalado, como um "uá".', min: 0.5, max: 15, log: true, format: (value) => value.toFixed(1).replace('.', ',') },
+  { key: 'filterOpening', label: 'Abrir no começo', help: 'A nota começa mais abafada e vai abrindo logo depois do ataque, como o "uá" de um trompete ou trombone.', min: 0, max: 1, format: percent },
 ];
 
 const VIBRATO: SliderSpec[] = [
-  { key: 'vibratoRate', label: 'Vibrato: velocidade', min: 0.5, max: 9, format: (value) => `${value.toFixed(1)} Hz` },
-  { key: 'vibratoDepth', label: 'Vibrato: profundidade', min: 0, max: 60, format: (value) => `${Math.round(value)} cents` },
+  { key: 'vibratoRate', label: 'Velocidade', help: 'Quantas vezes por segundo a afinação balança. Cantores e violinistas costumam usar de 5 a 7.', min: 0.5, max: 9, format: (value) => `${value.toFixed(1).replace('.', ',')} vezes por segundo` },
+  { key: 'vibratoDepth', label: 'Profundidade', help: 'Quanto a afinação sobe e desce. Em cents: 100 cents = meio tom. Zero = sem vibrato.', min: 0, max: 60, format: (value) => `${Math.round(value)} cents` },
 ];
 
 const toSlider = (spec: SliderSpec, value: number): number => {
@@ -66,7 +70,7 @@ const fromSlider = (spec: SliderSpec, position: number): number => {
   return spec.min + fraction * (spec.max - spec.min);
 };
 
-const midiToHz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
+const copyParams = (params: SynthParams): SynthParams => ({ ...params, harmonics: [...params.harmonics], signs: [...params.signs] });
 
 const drawShape = (canvas: HTMLCanvasElement, params: SynthParams): void => {
   const context = fitCanvas(canvas);
@@ -94,44 +98,47 @@ const drawShape = (canvas: HTMLCanvasElement, params: SynthParams): void => {
   context.stroke();
 };
 
-const drawEnvelope = (canvas: HTMLCanvasElement, params: SynthParams): void => {
-  const context = fitCanvas(canvas);
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
-  const hold = 0.6;
-  const total = params.attack + params.decay + hold + params.release;
-  const x = (time: number): number => (time / total) * (width - 8) + 4;
-  const y = (level: number): number => height - 4 - level * (height - 8);
-  context.clearRect(0, 0, width, height);
-  context.strokeStyle = cssVar('--level');
-  context.lineWidth = 2.5;
-  context.beginPath();
-  context.moveTo(x(0), y(0));
-  context.lineTo(x(params.attack), y(1));
-  context.lineTo(x(params.attack + params.decay), y(params.sustain));
-  context.lineTo(x(params.attack + params.decay + hold), y(params.sustain));
-  context.lineTo(x(total), y(0));
-  context.stroke();
+const waveIcon = (name: WaveName): SVGSVGElement => {
+  const shape = waveShape({ ...DEFAULT_PARAMS, harmonics: WAVES[name].harmonics, signs: WAVES[name].signs }, ICON_POINTS);
+  const points = [...shape, ...shape].map((value, index) => `${(index / (ICON_POINTS * 2)) * 60},${12 - value * 10}`).join(' ');
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', '0 0 60 24');
+  svg.setAttribute('class', 'wave-icon');
+  svg.setAttribute('aria-hidden', 'true');
+  const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+  line.setAttribute('points', points);
+  svg.append(line);
+  return svg;
 };
 
-const buildKeys = (): Key[] =>
-  Array.from({ length: KEY_COUNT }, (_, index) => {
-    const midi = LOWEST_MIDI + index;
-    return { midi, black: BLACK_KEYS.has(midi % 12) };
-  });
+const whiteKeys = (): WhiteKey[] =>
+  WHITE_OFFSETS.map((offset, index) => ({ midi: BASE_MIDI + offset, black: BLACK_AFTER.includes(index) ? BASE_MIDI + offset + 1 : null }));
 
-/** Part 2: see the harmonics and build timbres by hand. */
-export const createLab = (spectrum: SpectrumView): HTMLElement => {
-  let params: SynthParams = { ...DEFAULT_PARAMS, harmonics: [...DEFAULT_PARAMS.harmonics], signs: [...DEFAULT_PARAMS.signs] };
+/** Part 2: build timbres by hand, with every control explained. */
+export const createLab = (): HTMLElement => {
+  let params: SynthParams = copyParams(DEFAULT_PARAMS);
   let octaveShift = 0;
-  let latched: SynthNote | null = null;
+  let sustainMode = false;
+  let held: { midi: number; note: SynthNote } | null = null;
+  let lastMidi = BASE_MIDI;
+  let presetId: string | null = null;
+  const pressed = new Set<SynthNote>();
   const harmonicInputs: HTMLInputElement[] = [];
   const sliderInputs = new Map<NumericKey, { input: HTMLInputElement; output: HTMLElement; spec: SliderSpec }>();
   const shapeCanvas = h('canvas', { class: 'shape' });
-  const envelopeCanvas = h('canvas', { class: 'envelope' });
+  const envelopeCanvas = h('canvas', { class: 'graph' });
+  const filterCanvas = h('canvas', { class: 'graph' });
+  const waveText = h('p', { class: 'help wave-text' }, '');
+  const keyButtons = new Map<number, HTMLButtonElement>();
   const redraw = (): void => {
     drawShape(shapeCanvas, params);
     drawEnvelope(envelopeCanvas, params);
+    drawFilter(filterCanvas, params, midiToHz(lastMidi + octaveShift * 12));
+  };
+  const liveUpdate = (): void => {
+    held?.note.update(params);
+    pressed.forEach((note) => note.update(params));
+    redraw();
   };
   const syncControls = (): void => {
     harmonicInputs.forEach((input, index) => {
@@ -141,28 +148,75 @@ export const createLab = (spectrum: SpectrumView): HTMLElement => {
       input.value = String(Math.round(toSlider(spec, params[spec.key])));
       output.textContent = spec.format(params[spec.key]);
     });
-    redraw();
+    liveUpdate();
   };
-  const restartLatched = (): void => {
-    if (!latched) {
+  const describeWave = (name: WaveName | null): void => {
+    if (!name) {
+      waveText.replaceChildren(CUSTOM_WAVE);
       return;
     }
-    latched.release();
-    latched = startNote(params, midiToHz(LOWEST_MIDI + octaveShift * 12));
+    waveText.replaceChildren(h('strong', {}, `${WAVES[name].label}: `), WAVES[name].what, ' ', h('em', {}, WAVES[name].like));
   };
-  const setParams = (next: SynthParams): void => {
-    params = next;
-    syncControls();
-    restartLatched();
+  const waves = radioGroup<WaveName>({
+    label: 'Onda geradora',
+    selected: 'sawtooth',
+    className: 'grid waves',
+    options: (Object.keys(WAVES) as WaveName[]).map((name) => {
+      const label = h('span', { class: 'wave-label' });
+      label.append(waveIcon(name), WAVES[name].label);
+      return { value: name, label };
+    }),
+    onSelect: (name) => {
+      params = { ...params, harmonics: [...WAVES[name].harmonics], signs: [...WAVES[name].signs] };
+      describeWave(name);
+      syncControls();
+    },
+  });
+  const realButton = h('button', { type: 'button', class: 'secondary', disabled: true }, '▶ Ouvir o instrumento real');
+  const presets = radioGroup<string>({
+    label: 'Imitar um instrumento',
+    selected: null,
+    options: PRESETS.map((preset) => ({ value: preset.id, label: preset.label, title: preset.family })),
+    onSelect: (id) => {
+      const preset = PRESETS.find((item) => item.id === id);
+      if (!preset) {
+        return;
+      }
+      presetId = id;
+      params = copyParams(preset.params);
+      waves.select(null);
+      describeWave(null);
+      realButton.disabled = false;
+      syncControls();
+    },
+  });
+  const playReal = async (): Promise<void> => {
+    if (!presetId) {
+      return;
+    }
+    getEngine();
+    stopAll();
+    held = null;
+    keyButtons.forEach((button) => button.classList.remove('down'));
+    const midi = lastMidi + octaveShift * 12;
+    const target = hasNote(presetId, midi) ? midi : [57, 69, 60].find((candidate) => presetId !== null && hasNote(presetId, candidate));
+    if (target === undefined) {
+      return;
+    }
+    playBuffer({ buffer: await loadPrepared({ instrumentId: presetId, midi: target }) });
+  };
+  realButton.addEventListener('click', () => void playReal());
+  const markCustom = (): void => {
+    waves.select(null);
+    describeWave(null);
   };
   const harmonicSlider = (index: number): HTMLElement => {
     const input = h('input', { type: 'range', min: 0, max: 100, value: 0, class: 'vertical', 'aria-label': `Harmônico ${index + 1}` });
     input.addEventListener('input', () => {
-      const harmonics = params.harmonics.map((value, position) => (position === index ? Number(input.value) / 100 : value));
-      params = { ...params, harmonics };
-      redraw();
+      params = { ...params, harmonics: params.harmonics.map((value, position) => (position === index ? Number(input.value) / 100 : value)) };
+      markCustom();
+      liveUpdate();
     });
-    input.addEventListener('change', restartLatched);
     harmonicInputs.push(input);
     return h('label', { class: 'harmonic' }, input, h('span', {}, String(index + 1)));
   };
@@ -172,107 +226,139 @@ export const createLab = (spectrum: SpectrumView): HTMLElement => {
     input.addEventListener('input', () => {
       params = { ...params, [spec.key]: fromSlider(spec, Number(input.value)) };
       output.textContent = spec.format(params[spec.key]);
-      redraw();
+      liveUpdate();
     });
-    input.addEventListener('change', restartLatched);
     sliderInputs.set(spec.key, { input, output, spec });
-    return h('label', { class: 'param' }, h('span', {}, spec.label), input, output);
+    return h('label', { class: 'param' }, h('span', { class: 'param-name' }, spec.label, ' ', output), input, h('small', { class: 'help' }, spec.help));
   };
-  const waveButtons = (Object.keys(WAVES) as WaveName[]).map((name) =>
-    h('button', {
-      type: 'button',
-      class: 'sound',
-      onclick: () => setParams({ ...params, harmonics: [...WAVES[name].harmonics], signs: [...WAVES[name].signs] }),
-    }, WAVES[name].label),
-  );
-  const presetButtons = PRESETS.map((preset) =>
-    h('button', { type: 'button', class: 'sound', onclick: () => setParams({ ...preset.params, harmonics: [...preset.params.harmonics], signs: [...preset.params.signs] }) }, preset.label),
-  );
-  const realSelect = h('select', { 'aria-label': 'Instrumento real' }, ...INSTRUMENTS.filter((item) => hasNote(item.id, 'A3')).map((item) => h('option', { value: item.id }, item.label)));
-  const playReal = async (): Promise<void> => {
+  const stopHeld = (): void => {
+    held?.note.release();
+    keyButtons.get(held?.midi ?? -1)?.classList.remove('down');
+    held = null;
+  };
+  const pressKey = (midi: number, button: HTMLButtonElement): (() => void) | null => {
     getEngine();
-    stopAll();
-    latched = null;
-    playBuffer({ buffer: await loadPrepared({ instrumentId: realSelect.value, note: 'A3' }) });
+    lastMidi = midi - octaveShift * 12;
+    redraw();
+    if (sustainMode) {
+      const same = held?.midi === midi;
+      stopHeld();
+      if (!same) {
+        held = { midi, note: startNote(params, midiToHz(midi)) };
+        button.classList.add('down');
+      }
+      return null;
+    }
+    const note = startNote(params, midiToHz(midi));
+    pressed.add(note);
+    button.classList.add('down');
+    return () => {
+      note.release();
+      pressed.delete(note);
+      button.classList.remove('down');
+    };
   };
-  const keyboard = h('div', { class: 'keyboard', role: 'group', 'aria-label': 'Teclado' });
+  const keyButton = (midi: number, black: boolean, style: string): HTMLButtonElement => {
+    const label = black ? '' : noteName(midi).split(' ')[0];
+    const button = h('button', { type: 'button', class: black ? 'key black' : 'key', style, 'aria-label': noteName(midi) }, label);
+    let release: (() => void) | null = null;
+    const end = (): void => {
+      release?.();
+      release = null;
+    };
+    button.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      button.setPointerCapture(event.pointerId);
+      release = pressKey(midi, button);
+    });
+    button.addEventListener('pointerup', end);
+    button.addEventListener('pointercancel', end);
+    button.addEventListener('lostpointercapture', end);
+    keyButtons.set(midi, button);
+    return button;
+  };
+  const keyboard = h('div', { class: 'piano', role: 'group', 'aria-label': 'Teclado' });
   const renderKeys = (): void => {
-    keyboard.replaceChildren(
-      ...buildKeys().map((key) => {
-        const midi = key.midi + octaveShift * 12;
-        const label = NOTE_LETTERS[midi % 12];
-        const button = h('button', { type: 'button', class: key.black ? 'key black' : 'key', 'aria-label': `Nota ${midi}` }, label);
-        let note: SynthNote | null = null;
-        const release = (): void => {
-          note?.release();
-          note = null;
-          button.classList.remove('down');
-        };
-        button.addEventListener('pointerdown', (event) => {
-          event.preventDefault();
-          getEngine();
-          button.setPointerCapture(event.pointerId);
-          note = startNote(params, midiToHz(midi));
-          button.classList.add('down');
-        });
-        button.addEventListener('pointerup', release);
-        button.addEventListener('pointercancel', release);
-        button.addEventListener('lostpointercapture', release);
-        return button;
-      }),
-    );
+    stopHeld();
+    keyButtons.clear();
+    const keys = whiteKeys();
+    const width = 100 / keys.length;
+    const whites = keys.map((key) => keyButton(key.midi + octaveShift * 12, false, `width:${width}%`));
+    const blacks = keys.flatMap((key, index) => (key.black === null ? [] : [keyButton(key.black + octaveShift * 12, true, `left:${(index + 1) * width - width * 0.3}%;width:${width * 0.6}%`)]));
+    keyboard.replaceChildren(...whites, ...blacks);
   };
   const octaveLabel = h('span', { class: 'muted' }, '');
   const setOctave = (shift: number): void => {
-    octaveShift = Math.max(-1, Math.min(2, shift));
-    octaveLabel.textContent = `Lá ${3 + octaveShift} a Lá ${4 + octaveShift}`;
+    octaveShift = Math.max(-1, Math.min(1, shift));
+    octaveLabel.textContent = `${noteName(BASE_MIDI + octaveShift * 12)} a ${noteName(BASE_MIDI + 12 + octaveShift * 12)}`;
     renderKeys();
+    redraw();
   };
-  const latchButton = h('button', { type: 'button', class: 'primary' }, '▶ Nota longa');
-  latchButton.addEventListener('click', () => {
-    getEngine();
-    if (latched) {
-      latched.release();
-      latched = null;
-      latchButton.textContent = '▶ Nota longa';
-      return;
+  const sustainToggle = toggleButton('♪ Sustentar nota', (on) => {
+    sustainMode = on;
+    if (!on) {
+      stopHeld();
     }
-    latched = startNote(params, midiToHz(LOWEST_MIDI + octaveShift * 12));
-    latchButton.textContent = '■ Parar nota';
   });
   setOctave(0);
-  const element = h(
-    'div',
-    { class: 'lab' },
+  describeWave('sawtooth');
+  window.requestAnimationFrame(syncControls);
+  new ResizeObserver(redraw).observe(shapeCanvas);
+  return h(
+    'section',
+    { class: 'card', id: 'laboratorio' },
+    h('h2', {}, 'Laboratório de timbres'),
+    h('p', { class: 'prompt' }, 'Toque no teclado. Com "Sustentar nota" ligado, a tecla fica soando: outra tecla troca a nota, a mesma tecla para. Mexa em tudo abaixo enquanto o som toca.'),
     h(
-      'section',
-      { class: 'card', id: 'espectro' },
-      h('h2', {}, 'Espectro'),
-      h('p', { class: 'prompt' }, 'Cada pico é um harmônico. Toque no laboratório, num instrumento real ou no microfone (botão lá em cima).'),
-      spectrum.element,
+      'div',
+      { class: 'toolbar' },
+      sustainToggle,
+      h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift - 1) }, '− oitava'),
+      octaveLabel,
+      h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift + 1) }, '+ oitava'),
     ),
+    keyboard,
+    h('h3', {}, 'Onda geradora'),
+    h('p', { class: 'help' }, 'O ponto de partida do som. Cada onda já vem com uma receita de harmônicos diferente.'),
+    waves.element,
+    waveText,
+    h('h3', {}, 'Imitar um instrumento'),
+    h('p', { class: 'help' }, 'Receitas aproximadas para os instrumentos do MSA. Escolha um, toque no teclado e compare com a gravação real.'),
+    presets.element,
+    h('div', { class: 'toolbar' }, realButton),
+    h('h3', {}, 'Harmônicos'),
+    h('p', { class: 'help' }, 'Cada barra é a força de um harmônico. O 1 é a nota que você ouve (a fundamental); o 2 soa uma oitava acima, o 3 uma quinta acima disso, e assim por diante.'),
+    h('div', { class: 'harmonics' }, ...Array.from({ length: HARMONIC_COUNT }, (_, index) => harmonicSlider(index))),
     h(
-      'section',
-      { class: 'card', id: 'laboratorio' },
-      h('h2', {}, 'Laboratório de timbres'),
-      h('div', { class: 'toolbar' }, latchButton, h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift - 1) }, '− oitava'), octaveLabel, h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift + 1) }, '+ oitava')),
-      keyboard,
-      h('h3', {}, 'Onda geradora'),
-      h('div', { class: 'grid' }, ...waveButtons),
-      h('h3', {}, 'Imitar um instrumento'),
-      h('div', { class: 'grid' }, ...presetButtons),
-      h('div', { class: 'toolbar' }, h('span', { class: 'muted' }, 'Comparar com o real:'), realSelect, h('button', { type: 'button', class: 'secondary', onclick: () => void playReal() }, '▶ Ouvir o real')),
-      h('h3', {}, 'Harmônicos'),
-      h('div', { class: 'harmonics' }, ...Array.from({ length: HARMONIC_COUNT }, (_, index) => harmonicSlider(index))),
-      h('div', { class: 'toolbar' }, h('button', { type: 'button', class: 'secondary', onclick: () => setParams({ ...params, harmonics: params.harmonics.map((value, index) => (index % 2 === 1 ? 0 : value)) }) }, 'Tirar os pares'), h('button', { type: 'button', class: 'secondary', onclick: () => setParams({ ...params, harmonics: params.harmonics.map((value, index) => (index === 0 ? 1 : value * 0.5)) }) }, 'Suavizar agudos')),
-      shapeCanvas,
-      h('div', { class: 'columns' },
-        h('div', {}, h('h3', {}, 'Começo, meio e fim'), envelopeCanvas, ...ENVELOPE.map(specSlider)),
-        h('div', {}, h('h3', {}, 'Abafamento'), ...FILTER.map(specSlider), h('h3', {}, 'Vibrato'), ...VIBRATO.map(specSlider)),
+      'div',
+      { class: 'toolbar' },
+      h('button', { type: 'button', class: 'secondary', onclick: () => { params = { ...params, harmonics: params.harmonics.map((value, index) => (index % 2 === 1 ? 0 : value)) }; markCustom(); syncControls(); } }, 'Tirar os pares'),
+      h('button', { type: 'button', class: 'secondary', onclick: () => { params = { ...params, harmonics: params.harmonics.map((value, index) => (index === 0 ? value : value * 0.5)) }; markCustom(); syncControls(); } }, 'Enfraquecer os agudos'),
+    ),
+    h('p', { class: 'help' }, 'Forma da onda que essa receita produz (dois ciclos):'),
+    shapeCanvas,
+    h(
+      'div',
+      { class: 'columns' },
+      h(
+        'div',
+        {},
+        h('h3', {}, 'Começo, meio e fim da nota'),
+        h('p', { class: 'help' }, 'O gráfico mostra o volume de uma nota ao longo do tempo: sobe no ataque, cai um pouco na queda, fica na sustentação enquanto a tecla está apertada e some no final.'),
+        envelopeCanvas,
+        ...ENVELOPE.map(specSlider),
+      ),
+      h(
+        'div',
+        {},
+        h('h3', {}, 'Abafamento'),
+        h('p', { class: 'help' }, 'O gráfico mostra quanto de cada frequência passa. Os pontos azuis são os harmônicos da última nota tocada: os que caem na parte baixa da curva ficam abafados.'),
+        filterCanvas,
+        ...FILTER.map(specSlider),
+        h('h3', {}, 'Vibrato'),
+        h('p', { class: 'help' }, 'Um balanço pequeno e regular na afinação, como o do cantor ou do violinista.'),
+        ...VIBRATO.map(specSlider),
       ),
     ),
   );
-  window.requestAnimationFrame(syncControls);
-  window.addEventListener('resize', redraw);
-  return element;
 };

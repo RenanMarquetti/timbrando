@@ -1,4 +1,4 @@
-import { CLIP_SECONDS, fadeOut, normalizeRms, type NoteName } from './samples';
+import { CLIP_SECONDS, fadeOut, normalizeRms } from './samples';
 
 export type Vowel = 'a' | 'e' | 'i' | 'o' | 'u';
 
@@ -9,7 +9,7 @@ type Formant = {
 
 export const VOWELS: Vowel[] = ['a', 'e', 'i', 'o', 'u'];
 
-export const NOTE_FREQUENCIES: Record<NoteName, number> = { A3: 220, A4: 440 };
+export const midiToHz = (midi: number): number => 440 * 2 ** ((midi - 69) / 12);
 
 const UPPER_FORMANTS: Formant[] = [
   { frequency: 3500, bandwidth: 250 },
@@ -48,8 +48,8 @@ export const vowelHarmonics = (vowel: Vowel, fundamental: number): number[] => {
 
 const cache = new Map<string, Promise<AudioBuffer>>();
 
-const renderVowel = async (vowel: Vowel, note: NoteName): Promise<AudioBuffer> => {
-  const fundamental = NOTE_FREQUENCIES[note];
+const renderVowel = async (vowel: Vowel, midi: number): Promise<AudioBuffer> => {
+  const fundamental = midiToHz(midi);
   const amplitudes = vowelHarmonics(vowel, fundamental);
   const offline = new OfflineAudioContext(1, Math.floor(CLIP_SECONDS * SAMPLE_RATE), SAMPLE_RATE);
   const real = new Float32Array(amplitudes.length + 1);
@@ -69,13 +69,13 @@ const renderVowel = async (vowel: Vowel, note: NoteName): Promise<AudioBuffer> =
 };
 
 /** A vowel at the given note, with the same length and strength as every other sound in the comparison. */
-export const loadVowel = (vowel: Vowel, note: NoteName): Promise<AudioBuffer> => {
-  const key = `${vowel}:${note}`;
+export const loadVowel = (vowel: Vowel, midi: number): Promise<AudioBuffer> => {
+  const key = `${vowel}:${midi}`;
   const cached = cache.get(key);
   if (cached) {
     return cached;
   }
-  const promise = renderVowel(vowel, note);
+  const promise = renderVowel(vowel, midi);
   cache.set(key, promise);
   return promise;
 };

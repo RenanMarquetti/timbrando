@@ -18,6 +18,7 @@ export type SynthParams = {
 
 export type SynthNote = {
   release: () => void;
+  update: (params: SynthParams) => void;
 };
 
 export const HARMONIC_COUNT = 16;
@@ -86,7 +87,12 @@ const startNoise = (ctx: AudioContext, params: SynthParams, frequency: number, d
   source.stop(start + NOISE_SECONDS);
 };
 
-const startVibrato = (ctx: AudioContext, params: SynthParams, oscillator: OscillatorNode, start: number): OscillatorNode => {
+type Vibrato = {
+  lfo: OscillatorNode;
+  depth: GainNode;
+};
+
+const startVibrato = (ctx: AudioContext, params: SynthParams, oscillator: OscillatorNode, start: number): Vibrato => {
   const lfo = ctx.createOscillator();
   const depth = ctx.createGain();
   lfo.frequency.value = params.vibratoRate;
@@ -95,7 +101,7 @@ const startVibrato = (ctx: AudioContext, params: SynthParams, oscillator: Oscill
   lfo.connect(depth);
   depth.connect(oscillator.detune);
   lfo.start(start);
-  return lfo;
+  return { lfo, depth };
 };
 
 /** Starts a held note; call release() when the key is let go. */
@@ -121,7 +127,7 @@ export const startNote = (params: SynthParams, frequency: number): SynthNote => 
   filter.connect(amp);
   amp.connect(master);
   startNoise(ctx, params, frequency, filter, start);
-  const lfo = startVibrato(ctx, params, oscillator, start);
+  const vibrato = startVibrato(ctx, params, oscillator, start);
   oscillator.start(start);
   let released = false;
   const voice = {
@@ -135,10 +141,27 @@ export const startNote = (params: SynthParams, frequency: number): SynthNote => 
       holdAt(amp.gain, now);
       amp.gain.setTargetAtTime(0, now, release / 4);
       oscillator.stop(now + release + 0.1);
-      lfo.stop(now + release + 0.1);
+      vibrato.lfo.stop(now + release + 0.1);
       unregisterVoice(voice);
     },
   };
   registerVoice(voice);
-  return { release: voice.stop };
+  const update = (next: SynthParams): void => {
+    if (released) {
+      return;
+    }
+    const now = ctx.currentTime;
+    oscillator.setPeriodicWave(buildWave(ctx, next));
+    filter.frequency.cancelScheduledValues(now);
+    filter.frequency.setTargetAtTime(next.cutoff, now, 0.03);
+    filter.Q.setTargetAtTime(next.resonance, now, 0.03);
+    vibrato.lfo.frequency.setTargetAtTime(next.vibratoRate, now, 0.05);
+    vibrato.depth.gain.cancelScheduledValues(now);
+    vibrato.depth.gain.setTargetAtTime(next.vibratoDepth, now, 0.05);
+    if (now > start + attack + decay) {
+      amp.gain.cancelScheduledValues(now);
+      amp.gain.setTargetAtTime(PEAK_LEVEL * next.sustain, now, 0.05);
+    }
+  };
+  return { release: voice.stop, update };
 };

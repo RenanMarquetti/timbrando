@@ -1,5 +1,3 @@
-export type ListenSource = 'app' | 'mic';
-
 type Engine = {
   ctx: AudioContext;
   master: GainNode;
@@ -12,13 +10,12 @@ type MicState = {
   source: MediaStreamAudioSourceNode | null;
 };
 
-const FFT_SIZE = 8192;
-const SMOOTHING = 0.6;
+const FFT_SIZE = 16384;
+const SMOOTHING = 0.55;
 
 let engine: Engine | null = null;
 const micState: MicState = { stream: null, source: null };
-let listenSource: ListenSource = 'app';
-const sourceListeners: Array<(source: ListenSource) => void> = [];
+const micListeners: Array<(on: boolean) => void> = [];
 
 const createAnalyser = (ctx: AudioContext): AnalyserNode => {
   const analyser = ctx.createAnalyser();
@@ -48,12 +45,20 @@ export const getEngine = (): Engine => {
   return engine;
 };
 
+export const isMicOn = (): boolean => micState.stream !== null;
+
+const notifyMic = (): void => micListeners.forEach((listener) => listener(isMicOn()));
+
+export const onMicChange = (listener: (on: boolean) => void): void => {
+  micListeners.push(listener);
+};
+
 /** Opens the microphone with every browser "improvement" turned off, so level and timbre stay honest. */
-export const startMic = async (): Promise<MediaStream> => {
-  const { ctx, micAnalyser } = getEngine();
+export const startMic = async (): Promise<void> => {
   if (micState.stream) {
-    return micState.stream;
+    return;
   }
+  const { ctx, micAnalyser } = getEngine();
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
   });
@@ -61,7 +66,7 @@ export const startMic = async (): Promise<MediaStream> => {
   source.connect(micAnalyser);
   micState.stream = stream;
   micState.source = source;
-  return stream;
+  notifyMic();
 };
 
 export const stopMic = (): void => {
@@ -69,30 +74,5 @@ export const stopMic = (): void => {
   micState.stream?.getTracks().forEach((track) => track.stop());
   micState.stream = null;
   micState.source = null;
-};
-
-export const getListenSource = (): ListenSource => listenSource;
-
-export const setListenSource = async (source: ListenSource): Promise<void> => {
-  if (source === 'mic') {
-    await startMic();
-  }
-  if (source === 'app') {
-    stopMic();
-  }
-  listenSource = source;
-  sourceListeners.forEach((listener) => listener(source));
-};
-
-export const onListenSourceChange = (listener: (source: ListenSource) => void): void => {
-  sourceListeners.push(listener);
-};
-
-/** The analyser for whatever the class is listening to right now (the app or the microphone). */
-export const getActiveAnalyser = (): AnalyserNode => {
-  const { outAnalyser, micAnalyser } = getEngine();
-  if (listenSource === 'mic') {
-    return micAnalyser;
-  }
-  return outAnalyser;
+  notifyMic();
 };

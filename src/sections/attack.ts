@@ -1,31 +1,24 @@
-import { CUT_SECONDS, shapeAttack, type AttackMode } from '../audio/attack';
-import { getEngine, getListenSource, startMic, stopMic } from '../audio/engine';
+import { GAME_CUT_SECONDS, reverseBuffer, startAt } from '../audio/attack';
+import { getEngine } from '../audio/engine';
 import { playBuffer, stopAll } from '../audio/player';
-import { hasNote, INSTRUMENTS, loadPrepared, normalizeRms } from '../audio/samples';
-import { cssVar, fitCanvas, h, selectInGroup } from '../ui/dom';
-
-type Choice = {
-  id: string;
-  label: string;
-};
+import { hasNote, INSTRUMENTS, instrumentLabel, loadPrepared, type Instrument } from '../audio/samples';
+import { toggleButton } from '../ui/controls';
+import { cssVar, fitCanvas, h } from '../ui/dom';
 
 type Score = {
   right: number;
   total: number;
 };
 
-const RECORD_SECONDS = 3;
+const ATTACK_MIDI = 57;
 const GAME_OPTIONS = 4;
-const RECORDING_ID = 'recording';
+const HANDLE_RADIUS = 9;
+const MAX_START_FRACTION = 0.9;
+const GAME_IDS = ['piano', 'guitar-nylon', 'harp', 'trumpet', 'flute', 'violin', 'cello', 'clarinet', 'saxophone', 'french-horn', 'trombone', 'bassoon'];
 
-const MODES: Array<{ mode: AttackMode; label: string }> = [
-  { mode: 'whole', label: 'Inteiro' },
-  { mode: 'cut', label: 'Sem o começo' },
-  { mode: 'soft', label: 'Começo lento' },
-  { mode: 'reverse', label: 'Ao contrário' },
-];
+const CHOICES: Instrument[] = INSTRUMENTS.filter((instrument) => hasNote(instrument.id, ATTACK_MIDI));
 
-const CHOICES: Choice[] = INSTRUMENTS.filter((instrument) => hasNote(instrument.id, 'A3')).map((instrument) => ({ id: instrument.id, label: instrument.label }));
+const GAME_CHOICES: Instrument[] = CHOICES.filter((instrument) => GAME_IDS.includes(instrument.id));
 
 const shuffle = <T>(items: T[]): T[] =>
   items
@@ -33,121 +26,121 @@ const shuffle = <T>(items: T[]): T[] =>
     .sort((a, b) => a.order - b.order)
     .map((entry) => entry.item);
 
-const drawWave = (canvas: HTMLCanvasElement, buffer: AudioBuffer, mode: AttackMode): void => {
+const formatSeconds = (seconds: number): string => `${seconds.toFixed(2).replace('.', ',')} s`;
+
+const drawWave = (canvas: HTMLCanvasElement, buffer: AudioBuffer, startSeconds: number): void => {
   const context = fitCanvas(canvas);
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
   const data = buffer.getChannelData(0);
   const bucket = Math.max(1, Math.floor(data.length / width));
   const peak = data.reduce((max, value) => Math.max(max, Math.abs(value)), 1e-6);
+  const markerX = (startSeconds / buffer.duration) * width;
   context.clearRect(0, 0, width, height);
-  if (mode === 'cut') {
-    context.fillStyle = cssVar('--cut');
-    context.fillRect(0, 0, (CUT_SECONDS / buffer.duration) * width, height);
-  }
-  context.fillStyle = cssVar('--accent');
   Array.from({ length: width }).forEach((_, x) => {
     const slice = data.subarray(x * bucket, (x + 1) * bucket);
     const max = slice.reduce((acc, value) => Math.max(acc, Math.abs(value)), 0) / peak;
-    const bar = max * (height / 2 - 2);
+    const bar = max * (height / 2 - 14);
+    context.fillStyle = x < markerX ? cssVar('--line') : cssVar('--accent');
     context.fillRect(x, height / 2 - bar, 1, bar * 2);
   });
+  context.strokeStyle = cssVar('--level');
+  context.lineWidth = 3;
+  context.beginPath();
+  context.moveTo(markerX, 0);
+  context.lineTo(markerX, height);
+  context.stroke();
+  context.fillStyle = cssVar('--level');
+  context.beginPath();
+  context.arc(Math.max(HANDLE_RADIUS, markerX), HANDLE_RADIUS + 1, HANDLE_RADIUS, 0, Math.PI * 2);
+  context.fill();
 };
 
-const recordMic = async (seconds: number): Promise<AudioBuffer> => {
-  const stream = await startMic();
-  const recorder = new MediaRecorder(stream);
-  const chunks: Blob[] = [];
-  recorder.addEventListener('dataavailable', (event) => chunks.push(event.data));
-  const stopped = new Promise<void>((resolve) => recorder.addEventListener('stop', () => resolve()));
-  recorder.start();
-  window.setTimeout(() => recorder.stop(), seconds * 1000);
-  await stopped;
-  if (getListenSource() === 'app') {
-    stopMic();
-  }
-  const data = await new Blob(chunks, { type: recorder.mimeType }).arrayBuffer();
-  return getEngine().ctx.decodeAudioData(data);
-};
-
-/** Part 1, block 3: how a sound begins. Not timbre itself, but part of what the ear feels as identity. */
+/** Part 1, block 2: how a sound begins. The student drags where the sound starts. */
 export const createAttack = (): HTMLElement => {
-  let sourceId = 'piano';
-  let mode: AttackMode = 'whole';
-  let recording: AudioBuffer | null = null;
-  let answer: Choice | null = null;
+  let instrumentId = 'piano';
+  let reversed = false;
+  let startSeconds = 0;
+  let shown: AudioBuffer | null = null;
+  let answer: Instrument | null = null;
   let score: Score = { right: 0, total: 0 };
-  const canvas = h('canvas', { class: 'wave' });
-  let lastDrawn: { buffer: AudioBuffer; mode: AttackMode } | null = null;
-  new ResizeObserver(() => {
-    if (lastDrawn) {
-      drawWave(canvas, lastDrawn.buffer, lastDrawn.mode);
+  const canvas = h('canvas', { class: 'wave', 'aria-label': 'Desenho do som: arraste para escolher onde ele começa' });
+  const startLabel = h('span', { class: 'muted' }, 'Começa em 0,00 s');
+  const redraw = (): void => {
+    if (shown) {
+      drawWave(canvas, shown, startSeconds);
     }
-  }).observe(canvas);
-  const loadSource = async (id: string): Promise<AudioBuffer> => {
-    if (id === RECORDING_ID && recording) {
-      return recording;
-    }
-    return loadPrepared({ instrumentId: id, note: 'A3' });
+    startLabel.textContent = `Começa em ${formatSeconds(startSeconds)}`;
   };
-  const play = async (): Promise<void> => {
+  const load = async (): Promise<void> => {
+    const buffer = await loadPrepared({ instrumentId, midi: ATTACK_MIDI });
+    shown = reversed ? reverseBuffer(buffer) : buffer;
+    redraw();
+  };
+  const play = (): void => {
     getEngine();
     stopAll();
-    const buffer = shapeAttack({ buffer: await loadSource(sourceId), mode });
-    lastDrawn = { buffer, mode };
-    drawWave(canvas, buffer, mode);
-    playBuffer({ buffer });
-  };
-  const sourceSelect = h('select', { 'aria-label': 'Som' }, ...CHOICES.map((choice) => h('option', { value: choice.id, selected: choice.id === sourceId }, choice.label)));
-  const recordingOption = h('option', { value: RECORDING_ID, disabled: true }, 'Sua gravação');
-  sourceSelect.append(recordingOption);
-  sourceSelect.addEventListener('change', () => {
-    sourceId = sourceSelect.value;
-    void play();
-  });
-  const modeGroup = h('div', { class: 'segmented wrap', role: 'group', 'aria-label': 'Começo do som' });
-  MODES.forEach((item) => {
-    const button = h('button', { type: 'button', 'aria-pressed': String(item.mode === mode) }, item.label);
-    button.addEventListener('click', () => {
-      mode = item.mode;
-      selectInGroup(modeGroup, button);
-      void play();
-    });
-    modeGroup.append(button);
-  });
-  const recordStatus = h('span', { class: 'muted', 'aria-live': 'polite' }, '');
-  const recordButton = h('button', { type: 'button', class: 'secondary' }, '● Gravar 3 s');
-  recordButton.addEventListener('click', async () => {
-    stopAll();
-    recordButton.disabled = true;
-    recordStatus.textContent = 'Gravando… toque ou cante uma nota.';
-    try {
-      recording = normalizeRms(await recordMic(RECORD_SECONDS));
-      recordingOption.disabled = false;
-      sourceSelect.value = RECORDING_ID;
-      sourceId = RECORDING_ID;
-      recordStatus.textContent = 'Pronto. Experimente os começos com a sua gravação.';
-      void play();
-    } catch {
-      recordStatus.textContent = 'Não consegui gravar. Verifique a permissão do microfone.';
+    if (shown) {
+      playBuffer({ buffer: startAt({ buffer: shown, seconds: startSeconds }) });
     }
-    recordButton.disabled = false;
+  };
+  const moveMarker = (event: PointerEvent): void => {
+    if (!shown) {
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const fraction = Math.min(MAX_START_FRACTION, Math.max(0, (event.clientX - rect.left) / rect.width));
+    startSeconds = fraction * shown.duration;
+    redraw();
+  };
+  canvas.addEventListener('pointerdown', (event) => {
+    canvas.setPointerCapture(event.pointerId);
+    moveMarker(event);
   });
+  canvas.addEventListener('pointermove', (event) => {
+    if (canvas.hasPointerCapture(event.pointerId)) {
+      moveMarker(event);
+    }
+  });
+  canvas.addEventListener('pointerup', play);
+  new ResizeObserver(redraw).observe(canvas);
+  const instrumentSelect = h('select', { 'aria-label': 'Instrumento' }, ...CHOICES.map((choice) => h('option', { value: choice.id, selected: choice.id === instrumentId }, choice.label)));
+  instrumentSelect.addEventListener('change', () => {
+    instrumentId = instrumentSelect.value;
+    startSeconds = 0;
+    void load().then(play);
+  });
+  const reverseToggle = toggleButton('⇄ Ao contrário', (on) => {
+    reversed = on;
+    startSeconds = 0;
+    void load().then(play);
+  });
+  const fromStart = h(
+    'button',
+    {
+      type: 'button',
+      class: 'secondary',
+      onclick: () => {
+        startSeconds = 0;
+        redraw();
+        play();
+      },
+    },
+    '⟲ Do começo',
+  );
   const gameStatus = h('p', { class: 'guess-status', 'aria-live': 'polite' }, '');
   const gameOptions = h('div', { class: 'grid' });
   const scoreLabel = h('span', { class: 'muted' }, '');
-  const showScore = (): void => {
-    scoreLabel.textContent = score.total === 0 ? '' : `Acertos: ${score.right} de ${score.total}`;
-  };
   const playMystery = async (cut: boolean): Promise<void> => {
     if (!answer) {
       return;
     }
+    getEngine();
     stopAll();
-    const buffer = await loadPrepared({ instrumentId: answer.id, note: 'A3' });
-    playBuffer({ buffer: cut ? shapeAttack({ buffer, mode: 'cut' }) : buffer });
+    const buffer = await loadPrepared({ instrumentId: answer.id, midi: ATTACK_MIDI });
+    playBuffer({ buffer: cut ? startAt({ buffer, seconds: GAME_CUT_SECONDS }) : buffer });
   };
-  const guess = (choice: Choice, button: HTMLButtonElement): void => {
+  const guess = (choice: Instrument, button: HTMLButtonElement): void => {
     if (!answer || gameOptions.dataset.done === 'true') {
       return;
     }
@@ -155,17 +148,17 @@ export const createAttack = (): HTMLElement => {
     score = { right: score.right + (correct ? 1 : 0), total: score.total + 1 };
     gameOptions.dataset.done = 'true';
     button.classList.add(correct ? 'right' : 'wrong');
-    gameStatus.textContent = correct ? `Isso! Era ${answer.label}. Ouça agora com o começo.` : `Era ${answer.label}. Ouça agora com o começo.`;
-    showScore();
+    gameStatus.textContent = `${correct ? 'Isso! ' : ''}Era ${instrumentLabel(answer.id)}. Ouça agora com o começo.`;
+    scoreLabel.textContent = `Acertos: ${score.right} de ${score.total}`;
     void playMystery(false);
   };
   const newRound = (): void => {
-    answer = CHOICES[Math.floor(Math.random() * CHOICES.length)];
-    const others = shuffle(CHOICES.filter((choice) => choice.id !== answer?.id)).slice(0, GAME_OPTIONS - 1);
-    const options = shuffle([answer, ...others]);
+    const chosen = GAME_CHOICES[Math.floor(Math.random() * GAME_CHOICES.length)];
+    answer = chosen;
+    const others = shuffle(GAME_CHOICES.filter((choice) => choice.id !== chosen.id)).slice(0, GAME_OPTIONS - 1);
     gameOptions.dataset.done = 'false';
     gameOptions.replaceChildren(
-      ...options.map((choice) => {
+      ...shuffle([chosen, ...others]).map((choice) => {
         const button = h('button', { type: 'button', class: 'sound' }, choice.label);
         button.addEventListener('click', () => guess(choice, button));
         return button;
@@ -174,15 +167,15 @@ export const createAttack = (): HTMLElement => {
     gameStatus.textContent = 'Que instrumento é esse, sem o começo?';
     void playMystery(true);
   };
+  void load();
   return h(
     'section',
     { class: 'card', id: 'ataque' },
     h('h2', {}, 'O começo do som'),
-    h('p', { class: 'prompt' }, 'O mesmo som, com começos diferentes. Ele continua sendo o mesmo instrumento?'),
-    h('div', { class: 'toolbar' }, sourceSelect, h('button', { type: 'button', class: 'primary', onclick: () => void play() }, '▶ Tocar')),
-    modeGroup,
+    h('p', { class: 'prompt' }, 'Arraste a linha laranja sobre o desenho para escolher onde o som começa. Ele continua sendo o mesmo instrumento?'),
+    h('div', { class: 'toolbar' }, instrumentSelect, h('button', { type: 'button', class: 'primary', onclick: play }, '▶ Tocar'), reverseToggle, fromStart),
     canvas,
-    h('div', { class: 'toolbar' }, recordButton, recordStatus),
+    h('div', { class: 'toolbar' }, startLabel),
     h('h3', {}, 'Quem é, sem o começo?'),
     h(
       'div',

@@ -1,15 +1,10 @@
-import { cloneBuffer } from './samples';
+export const GAME_CUT_SECONDS = 0.15;
+const START_FADE_SECONDS = 0.03;
 
-export type AttackMode = 'whole' | 'cut' | 'soft' | 'reverse';
-
-type ShapeArgs = {
+type StartAtArgs = {
   buffer: AudioBuffer;
-  mode: AttackMode;
+  seconds: number;
 };
-
-export const CUT_SECONDS = 0.15;
-const CUT_FADE_SECONDS = 0.04;
-const SOFT_SECONDS = 0.6;
 
 const mapChannels = (buffer: AudioBuffer, transform: (data: Float32Array<ArrayBuffer>) => Float32Array<ArrayBuffer>, length: number): AudioBuffer => {
   const result = new AudioBuffer({ length, numberOfChannels: buffer.numberOfChannels, sampleRate: buffer.sampleRate });
@@ -24,34 +19,14 @@ const rampIn = (data: Float32Array<ArrayBuffer>, rampLength: number): Float32Arr
     if (index >= rampLength) {
       return value;
     }
-    const position = index / rampLength;
-    return value * position * position;
+    return value * (index / rampLength);
   });
 
-/** Removes the first instants of the sound and fades in quickly, like Schaeffer's tape experiment. */
-const cutAttack = (buffer: AudioBuffer): AudioBuffer => {
-  const skip = Math.floor(CUT_SECONDS * buffer.sampleRate);
-  const fade = Math.floor(CUT_FADE_SECONDS * buffer.sampleRate);
-  return mapChannels(buffer, (data) => rampIn(data.slice(skip), fade), buffer.length - skip);
+/** The sound played from a chosen instant on, with a tiny fade so the cut does not click. */
+export const startAt = (args: StartAtArgs): AudioBuffer => {
+  const skip = Math.min(Math.floor(args.seconds * args.buffer.sampleRate), args.buffer.length - 1);
+  const fade = skip === 0 ? 0 : Math.floor(START_FADE_SECONDS * args.buffer.sampleRate);
+  return mapChannels(args.buffer, (data) => rampIn(data.slice(skip), fade), args.buffer.length - skip);
 };
 
-const softAttack = (buffer: AudioBuffer): AudioBuffer => {
-  const fade = Math.floor(SOFT_SECONDS * buffer.sampleRate);
-  return mapChannels(buffer, (data) => rampIn(data.slice(), fade), buffer.length);
-};
-
-const reverseBuffer = (buffer: AudioBuffer): AudioBuffer => mapChannels(buffer, (data) => data.slice().reverse(), buffer.length);
-
-/** Returns a new buffer with the beginning of the sound changed; the original stays untouched. */
-export const shapeAttack = (args: ShapeArgs): AudioBuffer => {
-  if (args.mode === 'cut') {
-    return cutAttack(args.buffer);
-  }
-  if (args.mode === 'soft') {
-    return softAttack(args.buffer);
-  }
-  if (args.mode === 'reverse') {
-    return reverseBuffer(args.buffer);
-  }
-  return cloneBuffer(args.buffer);
-};
+export const reverseBuffer = (buffer: AudioBuffer): AudioBuffer => mapChannels(buffer, (data) => data.slice().reverse(), buffer.length);

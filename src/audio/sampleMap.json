@@ -1,120 +1,778 @@
 {
- "violin": {
-  "A3": {
-   "file": "violin/A3.mp3",
-   "shift": 0
+ "organ": [
+  {
+   "midi": 60,
+   "file": "organ/60.mp3"
   },
-  "A4": {
-   "file": "violin/A4.mp3",
-   "shift": 0
-  }
- },
- "cello": {
-  "A3": {
-   "file": "cello/A3.mp3",
-   "shift": 0
+  {
+   "midi": 63,
+   "file": "organ/63.mp3"
   },
-  "A4": {
-   "file": "cello/A4.mp3",
-   "shift": 0
-  }
- },
- "flute": {
-  "A4": {
-   "file": "flute/A4.mp3",
-   "shift": 0
-  }
- },
- "clarinet": {
-  "A3": {
-   "file": "clarinet/As3.mp3",
-   "shift": -1
+  {
+   "midi": 66,
+   "file": "organ/66.mp3"
   },
-  "A4": {
-   "file": "clarinet/As4.mp3",
-   "shift": -1
+  {
+   "midi": 69,
+   "file": "organ/69.mp3"
   }
- },
- "saxophone": {
-  "A3": {
-   "file": "saxophone/As3.mp3",
-   "shift": -1
+ ],
+ "violin": [
+  {
+   "midi": 55,
+   "file": "violin/55.mp3"
   },
-  "A4": {
-   "file": "saxophone/A4.mp3",
-   "shift": 0
-  }
- },
- "trumpet": {
-  "A3": {
-   "file": "trumpet/A3.mp3",
-   "shift": 0
+  {
+   "midi": 57,
+   "file": "violin/57.mp3"
   },
-  "A4": {
-   "file": "trumpet/As4.mp3",
-   "shift": -1
-  }
- },
- "french-horn": {
-  "A3": {
-   "file": "french-horn/A3.mp3",
-   "shift": 0
-  }
- },
- "bassoon": {
-  "A3": {
-   "file": "bassoon/A3.mp3",
-   "shift": 0
+  {
+   "midi": 60,
+   "file": "violin/60.mp3"
   },
-  "A4": {
-   "file": "bassoon/A4.mp3",
-   "shift": 0
-  }
- },
- "piano": {
-  "A3": {
-   "file": "piano/A3.mp3",
-   "shift": 0
+  {
+   "midi": 64,
+   "file": "violin/64.mp3"
   },
-  "A4": {
-   "file": "piano/A4.mp3",
-   "shift": 0
-  }
- },
- "guitar-nylon": {
-  "A3": {
-   "file": "guitar-nylon/A3.mp3",
-   "shift": 0
+  {
+   "midi": 67,
+   "file": "violin/67.mp3"
   },
-  "A4": {
-   "file": "guitar-nylon/A4.mp3",
-   "shift": 0
-  }
- },
- "harp": {
-  "A3": {
-   "file": "harp/B3.mp3",
-   "shift": -2
+  {
+   "midi": 69,
+   "file": "violin/69.mp3"
   },
-  "A4": {
-   "file": "harp/A4.mp3",
-   "shift": 0
+  {
+   "midi": 72,
+   "file": "violin/72.mp3"
   }
- },
- "organ": {
-  "A4": {
-   "file": "organ/A3.mp3",
-   "shift": 0
-  }
- },
- "harmonium": {
-  "A3": {
-   "file": "harmonium/A3.mp3",
-   "shift": 0
+ ],
+ "viola": [
+  {
+   "midi": 48,
+   "file": "viola/48.mp3"
   },
-  "A4": {
-   "file": "harmonium/A4.mp3",
-   "shift": 0
+  {
+   "midi": 50,
+   "file": "viola/50.mp3"
+  },
+  {
+   "midi": 52,
+   "file": "viola/52.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "viola/55.mp3"
+  },
+  {
+   "midi": 59,
+   "file": "viola/59.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "viola/62.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "viola/65.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "viola/69.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "viola/72.mp3"
   }
- }
+ ],
+ "cello": [
+  {
+   "midi": 45,
+   "file": "cello/45.mp3"
+  },
+  {
+   "midi": 46,
+   "file": "cello/46.mp3"
+  },
+  {
+   "midi": 47,
+   "file": "cello/47.mp3"
+  },
+  {
+   "midi": 48,
+   "file": "cello/48.mp3"
+  },
+  {
+   "midi": 49,
+   "file": "cello/49.mp3"
+  },
+  {
+   "midi": 50,
+   "file": "cello/50.mp3"
+  },
+  {
+   "midi": 51,
+   "file": "cello/51.mp3"
+  },
+  {
+   "midi": 52,
+   "file": "cello/52.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "cello/53.mp3"
+  },
+  {
+   "midi": 54,
+   "file": "cello/54.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "cello/55.mp3"
+  },
+  {
+   "midi": 56,
+   "file": "cello/56.mp3"
+  },
+  {
+   "midi": 57,
+   "file": "cello/57.mp3"
+  },
+  {
+   "midi": 58,
+   "file": "cello/58.mp3"
+  },
+  {
+   "midi": 59,
+   "file": "cello/59.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "cello/60.mp3"
+  },
+  {
+   "midi": 61,
+   "file": "cello/61.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "cello/62.mp3"
+  },
+  {
+   "midi": 63,
+   "file": "cello/63.mp3"
+  },
+  {
+   "midi": 64,
+   "file": "cello/64.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "cello/65.mp3"
+  },
+  {
+   "midi": 66,
+   "file": "cello/66.mp3"
+  },
+  {
+   "midi": 67,
+   "file": "cello/67.mp3"
+  },
+  {
+   "midi": 68,
+   "file": "cello/68.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "cello/69.mp3"
+  },
+  {
+   "midi": 71,
+   "file": "cello/71.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "cello/72.mp3"
+  }
+ ],
+ "flute": [
+  {
+   "midi": 60,
+   "file": "flute/60.mp3"
+  },
+  {
+   "midi": 64,
+   "file": "flute/64.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "flute/69.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "flute/72.mp3"
+  }
+ ],
+ "oboe": [
+  {
+   "midi": 58,
+   "file": "oboe/58.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "oboe/62.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "oboe/65.mp3"
+  },
+  {
+   "midi": 70,
+   "file": "oboe/70.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "oboe/74.mp3"
+  }
+ ],
+ "bassoon": [
+  {
+   "midi": 45,
+   "file": "bassoon/45.mp3"
+  },
+  {
+   "midi": 48,
+   "file": "bassoon/48.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "bassoon/55.mp3"
+  },
+  {
+   "midi": 57,
+   "file": "bassoon/57.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "bassoon/60.mp3"
+  },
+  {
+   "midi": 64,
+   "file": "bassoon/64.mp3"
+  },
+  {
+   "midi": 67,
+   "file": "bassoon/67.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "bassoon/69.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "bassoon/72.mp3"
+  }
+ ],
+ "clarinet": [
+  {
+   "midi": 50,
+   "file": "clarinet/50.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "clarinet/53.mp3"
+  },
+  {
+   "midi": 58,
+   "file": "clarinet/58.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "clarinet/62.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "clarinet/65.mp3"
+  },
+  {
+   "midi": 70,
+   "file": "clarinet/70.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "clarinet/74.mp3"
+  }
+ ],
+ "saxophone": [
+  {
+   "midi": 49,
+   "file": "saxophone/49.mp3"
+  },
+  {
+   "midi": 50,
+   "file": "saxophone/50.mp3"
+  },
+  {
+   "midi": 51,
+   "file": "saxophone/51.mp3"
+  },
+  {
+   "midi": 52,
+   "file": "saxophone/52.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "saxophone/53.mp3"
+  },
+  {
+   "midi": 54,
+   "file": "saxophone/54.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "saxophone/55.mp3"
+  },
+  {
+   "midi": 56,
+   "file": "saxophone/56.mp3"
+  },
+  {
+   "midi": 58,
+   "file": "saxophone/58.mp3"
+  },
+  {
+   "midi": 59,
+   "file": "saxophone/59.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "saxophone/60.mp3"
+  },
+  {
+   "midi": 61,
+   "file": "saxophone/61.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "saxophone/62.mp3"
+  },
+  {
+   "midi": 63,
+   "file": "saxophone/63.mp3"
+  },
+  {
+   "midi": 64,
+   "file": "saxophone/64.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "saxophone/65.mp3"
+  },
+  {
+   "midi": 66,
+   "file": "saxophone/66.mp3"
+  },
+  {
+   "midi": 67,
+   "file": "saxophone/67.mp3"
+  },
+  {
+   "midi": 68,
+   "file": "saxophone/68.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "saxophone/69.mp3"
+  },
+  {
+   "midi": 70,
+   "file": "saxophone/70.mp3"
+  },
+  {
+   "midi": 71,
+   "file": "saxophone/71.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "saxophone/72.mp3"
+  },
+  {
+   "midi": 73,
+   "file": "saxophone/73.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "saxophone/74.mp3"
+  },
+  {
+   "midi": 75,
+   "file": "saxophone/75.mp3"
+  }
+ ],
+ "trumpet": [
+  {
+   "midi": 53,
+   "file": "trumpet/53.mp3"
+  },
+  {
+   "midi": 57,
+   "file": "trumpet/57.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "trumpet/60.mp3"
+  },
+  {
+   "midi": 63,
+   "file": "trumpet/63.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "trumpet/65.mp3"
+  },
+  {
+   "midi": 67,
+   "file": "trumpet/67.mp3"
+  },
+  {
+   "midi": 70,
+   "file": "trumpet/70.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "trumpet/74.mp3"
+  }
+ ],
+ "french-horn": [
+  {
+   "midi": 50,
+   "file": "french-horn/50.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "french-horn/53.mp3"
+  },
+  {
+   "midi": 57,
+   "file": "french-horn/57.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "french-horn/60.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "french-horn/74.mp3"
+  }
+ ],
+ "trombone": [
+  {
+   "midi": 46,
+   "file": "trombone/46.mp3"
+  },
+  {
+   "midi": 48,
+   "file": "trombone/48.mp3"
+  },
+  {
+   "midi": 50,
+   "file": "trombone/50.mp3"
+  },
+  {
+   "midi": 51,
+   "file": "trombone/51.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "trombone/53.mp3"
+  },
+  {
+   "midi": 56,
+   "file": "trombone/56.mp3"
+  },
+  {
+   "midi": 58,
+   "file": "trombone/58.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "trombone/60.mp3"
+  },
+  {
+   "midi": 61,
+   "file": "trombone/61.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "trombone/62.mp3"
+  },
+  {
+   "midi": 63,
+   "file": "trombone/63.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "trombone/65.mp3"
+  }
+ ],
+ "tuba": [
+  {
+   "midi": 46,
+   "file": "tuba/46.mp3"
+  },
+  {
+   "midi": 50,
+   "file": "tuba/50.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "tuba/53.mp3"
+  },
+  {
+   "midi": 58,
+   "file": "tuba/58.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "tuba/62.mp3"
+  }
+ ],
+ "piano": [
+  {
+   "midi": 45,
+   "file": "piano/45.mp3"
+  },
+  {
+   "midi": 46,
+   "file": "piano/46.mp3"
+  },
+  {
+   "midi": 47,
+   "file": "piano/47.mp3"
+  },
+  {
+   "midi": 48,
+   "file": "piano/48.mp3"
+  },
+  {
+   "midi": 49,
+   "file": "piano/49.mp3"
+  },
+  {
+   "midi": 50,
+   "file": "piano/50.mp3"
+  },
+  {
+   "midi": 51,
+   "file": "piano/51.mp3"
+  },
+  {
+   "midi": 52,
+   "file": "piano/52.mp3"
+  },
+  {
+   "midi": 53,
+   "file": "piano/53.mp3"
+  },
+  {
+   "midi": 54,
+   "file": "piano/54.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "piano/55.mp3"
+  },
+  {
+   "midi": 56,
+   "file": "piano/56.mp3"
+  },
+  {
+   "midi": 57,
+   "file": "piano/57.mp3"
+  },
+  {
+   "midi": 58,
+   "file": "piano/58.mp3"
+  },
+  {
+   "midi": 59,
+   "file": "piano/59.mp3"
+  },
+  {
+   "midi": 60,
+   "file": "piano/60.mp3"
+  },
+  {
+   "midi": 61,
+   "file": "piano/61.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "piano/62.mp3"
+  },
+  {
+   "midi": 63,
+   "file": "piano/63.mp3"
+  },
+  {
+   "midi": 64,
+   "file": "piano/64.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "piano/65.mp3"
+  },
+  {
+   "midi": 66,
+   "file": "piano/66.mp3"
+  },
+  {
+   "midi": 67,
+   "file": "piano/67.mp3"
+  },
+  {
+   "midi": 68,
+   "file": "piano/68.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "piano/69.mp3"
+  },
+  {
+   "midi": 70,
+   "file": "piano/70.mp3"
+  },
+  {
+   "midi": 71,
+   "file": "piano/71.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "piano/72.mp3"
+  },
+  {
+   "midi": 73,
+   "file": "piano/73.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "piano/74.mp3"
+  },
+  {
+   "midi": 75,
+   "file": "piano/75.mp3"
+  }
+ ],
+ "guitar-nylon": [
+  {
+   "midi": 45,
+   "file": "guitar-nylon/45.mp3"
+  },
+  {
+   "midi": 47,
+   "file": "guitar-nylon/47.mp3"
+  },
+  {
+   "midi": 49,
+   "file": "guitar-nylon/49.mp3"
+  },
+  {
+   "midi": 50,
+   "file": "guitar-nylon/50.mp3"
+  },
+  {
+   "midi": 52,
+   "file": "guitar-nylon/52.mp3"
+  },
+  {
+   "midi": 54,
+   "file": "guitar-nylon/54.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "guitar-nylon/55.mp3"
+  },
+  {
+   "midi": 57,
+   "file": "guitar-nylon/57.mp3"
+  },
+  {
+   "midi": 59,
+   "file": "guitar-nylon/59.mp3"
+  },
+  {
+   "midi": 61,
+   "file": "guitar-nylon/61.mp3"
+  },
+  {
+   "midi": 63,
+   "file": "guitar-nylon/63.mp3"
+  },
+  {
+   "midi": 64,
+   "file": "guitar-nylon/64.mp3"
+  },
+  {
+   "midi": 66,
+   "file": "guitar-nylon/66.mp3"
+  },
+  {
+   "midi": 68,
+   "file": "guitar-nylon/68.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "guitar-nylon/69.mp3"
+  },
+  {
+   "midi": 71,
+   "file": "guitar-nylon/71.mp3"
+  },
+  {
+   "midi": 73,
+   "file": "guitar-nylon/73.mp3"
+  },
+  {
+   "midi": 74,
+   "file": "guitar-nylon/74.mp3"
+  }
+ ],
+ "harp": [
+  {
+   "midi": 45,
+   "file": "harp/45.mp3"
+  },
+  {
+   "midi": 48,
+   "file": "harp/48.mp3"
+  },
+  {
+   "midi": 52,
+   "file": "harp/52.mp3"
+  },
+  {
+   "midi": 55,
+   "file": "harp/55.mp3"
+  },
+  {
+   "midi": 59,
+   "file": "harp/59.mp3"
+  },
+  {
+   "midi": 62,
+   "file": "harp/62.mp3"
+  },
+  {
+   "midi": 65,
+   "file": "harp/65.mp3"
+  },
+  {
+   "midi": 69,
+   "file": "harp/69.mp3"
+  },
+  {
+   "midi": 72,
+   "file": "harp/72.mp3"
+  }
+ ]
 }

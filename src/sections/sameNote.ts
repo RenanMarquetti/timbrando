@@ -1,77 +1,75 @@
 import { getEngine } from '../audio/engine';
 import { playBuffer, stopAll } from '../audio/player';
-import { CLIP_SECONDS, hasNote, INSTRUMENTS, loadPrepared, type NoteName } from '../audio/samples';
+import { CLIP_SECONDS, FAMILIES, hasNote, loadPrepared, type Instrument } from '../audio/samples';
 import { loadVowel, VOWELS, type Vowel } from '../audio/vowels';
-import { h, selectInGroup } from '../ui/dom';
+import { noteSelect } from '../ui/controls';
+import { h } from '../ui/dom';
 
 type Sound = {
   key: string;
   label: string;
-  load: (note: NoteName) => Promise<AudioBuffer>;
-  available: (note: NoteName) => boolean;
+  load: (midi: number) => Promise<AudioBuffer>;
+  available: (midi: number) => boolean;
 };
 
-const GAP_SECONDS = 0.5;
+const OVERLAP_SECONDS = 0.3;
+const DEFAULT_MIDI = 57;
 
 const vowelSounds: Sound[] = VOWELS.map((vowel: Vowel) => ({
   key: `vowel-${vowel}`,
   label: vowel.toUpperCase(),
-  load: (note) => loadVowel(vowel, note),
+  load: (midi) => loadVowel(vowel, midi),
   available: () => true,
 }));
 
-const instrumentSounds: Sound[] = INSTRUMENTS.map((instrument) => ({
+const instrumentSound = (instrument: Instrument): Sound => ({
   key: instrument.id,
   label: instrument.label,
-  load: (note) => loadPrepared({ instrumentId: instrument.id, note }),
-  available: (note) => hasNote(instrument.id, note),
-}));
+  load: (midi) => loadPrepared({ instrumentId: instrument.id, midi }),
+  available: (midi) => hasNote(instrument.id, midi),
+});
 
-let sequenceTimer: number | null = null;
+const instrumentSounds: Sound[] = FAMILIES.flatMap((family) => family.instruments.map(instrumentSound));
 
-const clearSequence = (): void => {
-  if (sequenceTimer !== null) {
-    window.clearTimeout(sequenceTimer);
-    sequenceTimer = null;
-  }
-};
+let timers: number[] = [];
 
-const flash = (button: HTMLElement, seconds: number): void => {
-  button.classList.add('playing');
-  window.setTimeout(() => button.classList.remove('playing'), seconds * 1000);
+const clearTimers = (): void => {
+  timers.forEach((timer) => window.clearTimeout(timer));
+  timers = [];
 };
 
 /** Part 1, block 1: same note, same strength, same length. Only the color changes. */
 export const createSameNote = (): HTMLElement => {
-  let note: NoteName = 'A3';
+  let midi = DEFAULT_MIDI;
   const buttons = new Map<string, HTMLButtonElement>();
-  const play = async (sound: Sound): Promise<void> => {
-    getEngine();
-    clearSequence();
-    stopAll();
-    const buffer = await sound.load(note);
-    playBuffer({ buffer });
-    const button = buttons.get(sound.key);
-    if (button) {
-      flash(button, CLIP_SECONDS);
+  const highlight = (key: string, delaySeconds: number): void => {
+    const button = buttons.get(key);
+    if (!button) {
+      return;
     }
+    timers.push(window.setTimeout(() => button.classList.add('playing'), delaySeconds * 1000));
+    timers.push(window.setTimeout(() => button.classList.remove('playing'), (delaySeconds + CLIP_SECONDS - OVERLAP_SECONDS) * 1000));
   };
-  const playSequence = (sounds: Sound[]): void => {
-    const playable = sounds.filter((sound) => sound.available(note));
-    clearSequence();
-    const step = (index: number): void => {
-      if (index >= playable.length) {
-        return;
-      }
-      void play(playable[index]).then(() => {
-        sequenceTimer = window.setTimeout(() => step(index + 1), (CLIP_SECONDS + GAP_SECONDS) * 1000);
-      });
-    };
-    step(0);
+  const stop = (): void => {
+    clearTimers();
+    stopAll();
+    buttons.forEach((button) => button.classList.remove('playing'));
+  };
+  const playSounds = async (sounds: Sound[]): Promise<void> => {
+    const { ctx } = getEngine();
+    stop();
+    const playable = sounds.filter((sound) => sound.available(midi));
+    const buffers = await Promise.all(playable.map((sound) => sound.load(midi)));
+    const start = ctx.currentTime + 0.05;
+    const step = CLIP_SECONDS - OVERLAP_SECONDS;
+    buffers.forEach((buffer, index) => {
+      playBuffer({ buffer, when: start + index * step });
+      highlight(playable[index].key, index * step);
+    });
   };
   const soundButton = (sound: Sound, extraClass: string): HTMLButtonElement => {
     const button = h('button', { type: 'button', class: `sound ${extraClass}` }, sound.label);
-    button.addEventListener('click', () => void play(sound));
+    button.addEventListener('click', () => void playSounds([sound]));
     buttons.set(sound.key, button);
     return button;
   };
@@ -79,38 +77,39 @@ export const createSameNote = (): HTMLElement => {
     [...vowelSounds, ...instrumentSounds].forEach((sound) => {
       const button = buttons.get(sound.key);
       if (button) {
-        button.disabled = !sound.available(note);
+        button.disabled = !sound.available(midi);
+        button.title = button.disabled ? 'Esta nota está fora da extensão gravada deste instrumento' : '';
       }
     });
   };
-  const noteGroup = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Nota' });
-  const noteButton = (value: NoteName, label: string): HTMLButtonElement => {
-    const button = h('button', { type: 'button', 'aria-pressed': String(note === value) }, label);
-    button.addEventListener('click', () => {
-      note = value;
-      selectInGroup(noteGroup, button);
+  const families = FAMILIES.map((family) =>
+    h(
+      'div',
+      { class: 'family' },
+      h('span', { class: 'family-label' }, family.label),
+      h('div', { class: 'grid' }, ...family.instruments.map((instrument) => soundButton(instrumentSound(instrument), ''))),
+    ),
+  );
+  const picker = noteSelect({
+    value: midi,
+    onChange: (value) => {
+      midi = value;
+      stop();
       refreshAvailability();
-    });
-    return button;
-  };
-  noteGroup.append(noteButton('A3', 'Lá 220 Hz'), noteButton('A4', 'Lá 440 Hz'));
-  const vowelRow = h('div', { class: 'grid vowels' }, ...vowelSounds.map((sound) => soundButton(sound, 'vowel')));
-  const instrumentRow = h('div', { class: 'grid' }, ...instrumentSounds.map((sound) => soundButton(sound, '')));
-  const sequenceButton = (label: string, sounds: Sound[]): HTMLButtonElement =>
-    h('button', { type: 'button', class: 'secondary', onclick: () => playSequence(sounds) }, label);
-  const stopButton = h('button', { type: 'button', class: 'secondary', onclick: () => { clearSequence(); stopAll(); } }, '■ Parar');
+    },
+  });
   refreshAvailability();
   return h(
     'section',
     { class: 'card', id: 'mesma-nota' },
     h('h2', {}, 'Mesma nota, mesma força'),
     h('p', { class: 'prompt' }, 'Escute e olhe o medidor lá em cima. O que muda de um som para o outro?'),
-    h('div', { class: 'toolbar' }, noteGroup, stopButton),
+    h('div', { class: 'toolbar' }, h('label', { class: 'inline-label' }, 'Nota', picker), h('button', { type: 'button', class: 'secondary', onclick: stop }, '■ Parar')),
     h('h3', {}, 'Vogais'),
-    vowelRow,
-    h('div', { class: 'toolbar' }, sequenceButton('▶ Todas as vogais', vowelSounds)),
-    h('h3', {}, 'Instrumentos'),
-    instrumentRow,
-    h('div', { class: 'toolbar' }, sequenceButton('▶ Todos os instrumentos', instrumentSounds)),
+    h('div', { class: 'grid vowels' }, ...vowelSounds.map((sound) => soundButton(sound, 'vowel'))),
+    h('div', { class: 'toolbar' }, h('button', { type: 'button', class: 'secondary', onclick: () => void playSounds(vowelSounds) }, '▶ Todas as vogais, emendadas')),
+    h('h3', {}, 'Instrumentos do MSA'),
+    ...families,
+    h('div', { class: 'toolbar' }, h('button', { type: 'button', class: 'secondary', onclick: () => void playSounds(instrumentSounds) }, '▶ Todos os instrumentos, emendados')),
   );
 };
