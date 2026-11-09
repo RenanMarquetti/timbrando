@@ -28,3 +28,10 @@ Todos feitos na versão 0.2.0, menos o que está em "Versão futura". Cores: o M
 
 ## Versão futura
 - Gravar pelo microfone e aplicar o começo e o "ao contrário" na gravação.
+
+## Rodada de 09/11 (0.2.2) — feito
+- Teclado de Dó a Dó.
+- Ajustes da nota (começo/meio/fim, abafamento, vibrato) num botão "⚙ Ajustes da nota" ao lado do teclado, com aviso de que a receita do instrumento muda esses ajustes.
+- Forma da onda com eixos explicados (empurra/ar parado/puxa; tempo, duração do ciclo).
+- Verde da capa só na faixa do topo do tema claro; fundo da barra de intensidade visível.
+- Jogo "Quem é, sem o começo?" retirado.

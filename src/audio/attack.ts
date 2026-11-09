@@ -1,4 +1,3 @@
-export const GAME_CUT_SECONDS = 0.15;
 const START_FADE_SECONDS = 0.03;
 
 type StartAtArgs = {

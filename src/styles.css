@@ -1,7 +1,8 @@
 [hidden] { display: none !important; }
 
 :root {
-  --brand: #3b3e44;
+  --brand: #0d3b1c;
+  --track: #d8dce1;
   --brand-ink: #f1f2f4;
   --logo: #7cc48a;
   --bg: #f4f5f6;
@@ -31,6 +32,7 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --brand: #1c1e22;
+    --track: #30343a;
     --brand-ink: #dfe2e6;
     --logo: #7fcf8e;
     --bg: #121315;
@@ -59,6 +61,7 @@
 }
 :root[data-theme="dark"] {
   --brand: #1c1e22;
+  --track: #30343a;
   --brand-ink: #dfe2e6;
   --logo: #7fcf8e;
   --bg: #121315;
@@ -119,7 +122,7 @@ a { color: var(--pitch); }
 .meter-note { font-size: 1.4rem; color: var(--pitch); min-width: 4.5ch; font-variant-numeric: tabular-nums; }
 .meter-hz, .meter-db { color: var(--muted); font-variant-numeric: tabular-nums; min-width: 7ch; }
 .meter-source { color: var(--muted); font-size: .8rem; min-width: 8ch; }
-.meter-track { flex: 1; height: 10px; background: var(--chip); border-radius: 999px; overflow: hidden; }
+.meter-track { flex: 1; height: 10px; background: var(--track); border-radius: 999px; overflow: hidden; }
 .meter-fill { height: 100%; width: 0; background: var(--level); border-radius: 999px; transition: width 60ms linear; }
 .meter-history { width: 100%; height: 120px; display: block; margin-top: 6px; }
 
@@ -230,3 +233,6 @@ input.vertical { writing-mode: vertical-lr; direction: rtl; width: 28px; height:
 .band-button { border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 3px 10px; font-size: .8rem; font-weight: 600; cursor: pointer; }
 canvas.spectrum { height: 190px; }
 @media (max-width: 640px) { .band-button { padding: 3px 8px; font-size: .75rem; } canvas.spectrum { height: 150px; } }
+canvas.shape { height: 150px; }
+.adjustments { border: 1px solid var(--line); border-radius: 12px; padding: 4px 14px 10px; margin: 6px 0 10px; background: var(--chip); }
+.toggle.no-dot[aria-pressed="true"]::before { content: none; }

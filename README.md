@@ -14,7 +14,7 @@ No topo: o botão do **microfone** (ligado por padrão; o app pede a permissão)
 ### Som: a parte sensível do timbre
 Sem explicação, só a experiência. Um medidor mostra a altura (nota e Hz) e a intensidade (dB) do que está tocando: o som do app enquanto ele toca, senão o microfone.
 - **Mesma nota, mesma força:** as vogais A, E, I, O, U e os instrumentos da lista do MSA (mais piano, violão e harpa), na nota escolhida (Dó 3 a Dó 5), com a mesma duração e a mesma intensidade. "Tocar todos" emenda um som no outro, sem pausa.
-- **O começo do som:** arraste a linha sobre o desenho do som para escolher onde ele começa; botão "ao contrário"; o jogo "quem é, sem o começo?".
+- **O começo do som:** arraste a linha sobre o desenho do som para escolher onde ele começa e botão "ao contrário".
 
 ### Fundamento: de onde vem a diferença
 - **Espectro** fixo no topo, com cada harmônico e a sua frequência; toque no gráfico para ler qualquer ponto.

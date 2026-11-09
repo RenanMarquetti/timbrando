@@ -28,9 +28,9 @@ type WhiteKey = {
 const SLIDER_STEPS = 1000;
 const WAVE_POINTS = 400;
 const ICON_POINTS = 60;
-const BASE_MIDI = 57;
-const WHITE_OFFSETS = [0, 2, 3, 5, 7, 8, 10, 12];
-const BLACK_AFTER = [0, 2, 3, 5, 6];
+const BASE_MIDI = 60;
+const WHITE_OFFSETS = [0, 2, 4, 5, 7, 9, 11, 12];
+const BLACK_AFTER = [0, 1, 3, 4, 5];
 const CUSTOM_WAVE = 'Personalizada: você montou a sua própria receita de harmônicos.';
 
 const seconds = (value: number): string => (value < 1 ? `${Math.round(value * 1000)} ms` : `${value.toFixed(2).replace('.', ',')} s`);
@@ -72,28 +72,56 @@ const fromSlider = (spec: SliderSpec, position: number): number => {
 
 const copyParams = (params: SynthParams): SynthParams => ({ ...params, harmonics: [...params.harmonics], signs: [...params.signs] });
 
-const drawShape = (canvas: HTMLCanvasElement, params: SynthParams): void => {
+const SHAPE_LEFT = 74;
+const SHAPE_BOTTOM = 26;
+
+const formatPeriod = (fundamental: number): string => `${(1000 / fundamental).toFixed(1).replace('.', ',')} ms`;
+
+/** One wave drawn with meaning on both axes: x = time (two cycles), y = air pushed (up) or pulled back (down). */
+const drawShape = (canvas: HTMLCanvasElement, params: SynthParams, fundamental: number): void => {
   const context = fitCanvas(canvas);
-  const width = canvas.clientWidth;
-  const height = canvas.clientHeight;
+  const width = canvas.clientWidth - SHAPE_LEFT - 8;
+  const height = canvas.clientHeight - SHAPE_BOTTOM;
+  const middle = height / 2;
   const shape = waveShape(params, WAVE_POINTS);
-  context.clearRect(0, 0, width, height);
+  const xAt = (index: number): number => SHAPE_LEFT + (index / (WAVE_POINTS * 2)) * width;
+  context.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
+  context.font = '11px system-ui, sans-serif';
+  context.fillStyle = cssVar('--muted');
+  context.textAlign = 'right';
+  context.fillText('empurra ↑', SHAPE_LEFT - 8, 14);
+  context.fillText('ar parado', SHAPE_LEFT - 8, middle + 4);
+  context.fillText('puxa ↓', SHAPE_LEFT - 8, height - 4);
   context.strokeStyle = cssVar('--line');
+  context.lineWidth = 1;
   context.beginPath();
-  context.moveTo(0, height / 2);
-  context.lineTo(width, height / 2);
+  context.moveTo(SHAPE_LEFT, middle);
+  context.lineTo(SHAPE_LEFT + width, middle);
+  context.moveTo(SHAPE_LEFT + width / 2, 4);
+  context.lineTo(SHAPE_LEFT + width / 2, height);
   context.stroke();
+  context.strokeStyle = cssVar('--muted');
+  context.beginPath();
+  context.moveTo(SHAPE_LEFT, 0);
+  context.lineTo(SHAPE_LEFT, height);
+  context.lineTo(SHAPE_LEFT + width, height);
+  context.stroke();
+  context.textAlign = 'center';
+  context.fillText(`1 ciclo = ${formatPeriod(fundamental)}`, SHAPE_LEFT + width / 4, height + 14);
+  context.fillText(`2º ciclo`, SHAPE_LEFT + (width * 3) / 4, height + 14);
+  context.textAlign = 'right';
+  context.fillText('tempo →', SHAPE_LEFT + width, height + 24);
+  context.textAlign = 'left';
   context.strokeStyle = cssVar('--accent');
   context.lineWidth = 2.5;
   context.beginPath();
   [...shape, ...shape].forEach((value, index) => {
-    const x = (index / (WAVE_POINTS * 2)) * width;
-    const y = height / 2 - value * (height / 2 - 4);
+    const y = middle - value * (middle - 6);
     if (index === 0) {
-      context.moveTo(x, y);
+      context.moveTo(xAt(index), y);
       return;
     }
-    context.lineTo(x, y);
+    context.lineTo(xAt(index), y);
   });
   context.stroke();
 };
@@ -131,7 +159,7 @@ export const createLab = (): HTMLElement => {
   const waveText = h('p', { class: 'help wave-text' }, '');
   const keyButtons = new Map<number, HTMLButtonElement>();
   const redraw = (): void => {
-    drawShape(shapeCanvas, params);
+    drawShape(shapeCanvas, params, midiToHz(lastMidi + octaveShift * 12));
     drawEnvelope(envelopeCanvas, params);
     drawFilter(filterCanvas, params, midiToHz(lastMidi + octaveShift * 12));
   };
@@ -294,49 +322,10 @@ export const createLab = (): HTMLElement => {
     renderKeys();
     redraw();
   };
-  const sustainToggle = toggleButton('♪ Sustentar nota', (on) => {
-    sustainMode = on;
-    if (!on) {
-      stopHeld();
-    }
-  });
-  setOctave(0);
-  describeWave('sawtooth');
-  window.requestAnimationFrame(syncControls);
-  new ResizeObserver(redraw).observe(shapeCanvas);
-  return h(
-    'section',
-    { class: 'card', id: 'laboratorio' },
-    h('h2', {}, 'Laboratório de timbres'),
-    h('p', { class: 'prompt' }, 'Toque no teclado. Com "Sustentar nota" ligado, a tecla fica soando: outra tecla troca a nota, a mesma tecla para. Mexa em tudo abaixo enquanto o som toca.'),
-    h(
-      'div',
-      { class: 'toolbar' },
-      sustainToggle,
-      h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift - 1) }, '− oitava'),
-      octaveLabel,
-      h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift + 1) }, '+ oitava'),
-    ),
-    keyboard,
-    h('h3', {}, 'Onda geradora'),
-    h('p', { class: 'help' }, 'O ponto de partida do som. Cada onda já vem com uma receita de harmônicos diferente.'),
-    waves.element,
-    waveText,
-    h('h3', {}, 'Imitar um instrumento'),
-    h('p', { class: 'help' }, 'Receitas aproximadas para os instrumentos do MSA. Escolha um, toque no teclado e compare com a gravação real.'),
-    presets.element,
-    h('div', { class: 'toolbar' }, realButton),
-    h('h3', {}, 'Harmônicos'),
-    h('p', { class: 'help' }, 'Cada barra é a força de um harmônico. O 1 é a nota que você ouve (a fundamental); o 2 soa uma oitava acima, o 3 uma quinta acima disso, e assim por diante.'),
-    h('div', { class: 'harmonics' }, ...Array.from({ length: HARMONIC_COUNT }, (_, index) => harmonicSlider(index))),
-    h(
-      'div',
-      { class: 'toolbar' },
-      h('button', { type: 'button', class: 'secondary', onclick: () => { params = { ...params, harmonics: params.harmonics.map((value, index) => (index % 2 === 1 ? 0 : value)) }; markCustom(); syncControls(); } }, 'Tirar os pares'),
-      h('button', { type: 'button', class: 'secondary', onclick: () => { params = { ...params, harmonics: params.harmonics.map((value, index) => (index === 0 ? value : value * 0.5)) }; markCustom(); syncControls(); } }, 'Enfraquecer os agudos'),
-    ),
-    h('p', { class: 'help' }, 'Forma da onda que essa receita produz (dois ciclos):'),
-    shapeCanvas,
+  const adjustments = h(
+    'div',
+    { class: 'adjustments', hidden: true },
+    h('p', { class: 'help' }, 'Estes ajustes são o jeito de tocar a nota. Ao escolher um instrumento em "Imitar um instrumento", eles mudam junto, porque cada instrumento começa, sustenta e termina a nota de um jeito.'),
     h(
       'div',
       { class: 'columns' },
@@ -360,5 +349,56 @@ export const createLab = (): HTMLElement => {
         ...VIBRATO.map(specSlider),
       ),
     ),
+  );
+  const adjustToggle = toggleButton('⚙ Ajustes da nota', (on) => {
+    adjustments.hidden = !on;
+    redraw();
+  });
+  adjustToggle.classList.add('no-dot');
+  const sustainToggle = toggleButton('♪ Sustentar nota', (on) => {
+    sustainMode = on;
+    if (!on) {
+      stopHeld();
+    }
+  });
+  setOctave(0);
+  describeWave('sawtooth');
+  window.requestAnimationFrame(syncControls);
+  new ResizeObserver(redraw).observe(shapeCanvas);
+  return h(
+    'section',
+    { class: 'card', id: 'laboratorio' },
+    h('h2', {}, 'Laboratório de timbres'),
+    h('p', { class: 'prompt' }, 'Toque no teclado. Com "Sustentar nota" ligado, a tecla fica soando: outra tecla troca a nota, a mesma tecla para. Mexa em tudo abaixo enquanto o som toca.'),
+    h(
+      'div',
+      { class: 'toolbar' },
+      sustainToggle,
+      h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift - 1) }, '− oitava'),
+      octaveLabel,
+      h('button', { type: 'button', class: 'secondary', onclick: () => setOctave(octaveShift + 1) }, '+ oitava'),
+      adjustToggle,
+    ),
+    adjustments,
+    keyboard,
+    h('h3', {}, 'Onda geradora'),
+    h('p', { class: 'help' }, 'O ponto de partida do som. Cada onda já vem com uma receita de harmônicos diferente.'),
+    waves.element,
+    waveText,
+    h('h3', {}, 'Imitar um instrumento'),
+    h('p', { class: 'help' }, 'Receitas aproximadas para os instrumentos do MSA. Escolha um, toque no teclado e compare com a gravação real.'),
+    presets.element,
+    h('div', { class: 'toolbar' }, realButton),
+    h('h3', {}, 'Harmônicos'),
+    h('p', { class: 'help' }, 'Cada barra é a força de um harmônico. O 1 é a nota que você ouve (a fundamental); o 2 soa uma oitava acima, o 3 uma quinta acima disso, e assim por diante.'),
+    h('div', { class: 'harmonics' }, ...Array.from({ length: HARMONIC_COUNT }, (_, index) => harmonicSlider(index))),
+    h(
+      'div',
+      { class: 'toolbar' },
+      h('button', { type: 'button', class: 'secondary', onclick: () => { params = { ...params, harmonics: params.harmonics.map((value, index) => (index % 2 === 1 ? 0 : value)) }; markCustom(); syncControls(); } }, 'Tirar os pares'),
+      h('button', { type: 'button', class: 'secondary', onclick: () => { params = { ...params, harmonics: params.harmonics.map((value, index) => (index === 0 ? value : value * 0.5)) }; markCustom(); syncControls(); } }, 'Enfraquecer os agudos'),
+    ),
+    h('p', { class: 'help' }, 'A forma da onda mostra como o ar vibra com essa receita, em dois ciclos: acima da linha do meio o ar é empurrado na direção do ouvido (empurra); abaixo, é puxado de volta (puxa). Cada ciclo dura 1 ÷ a frequência da nota.'),
+    shapeCanvas,
   );
 };
