@@ -1,6 +1,6 @@
 # Pedidos do Renan (09/11/2026, depois do teste da 0.1.0)
 
-Todos feitos na versão 0.2.0, menos o que está em "Versão futura". Cores: o MSA é só inspiração; nada de cores fortes (pedido de 09/11).
+Todos feitos na versão 0.2.0, menos o que está em "Versão futura". Cores: o MSA é só inspiração; nada de cores fortes. Como no miolo do MSA: cinza na estrutura, azul nas ações e seleção, salmão no que toca e na intensidade, verde só em pontos de destaque (pedidos de 09/11).
 
 1. **Microfone (topo):** microfone ligado por padrão, com botão liga/desliga (precisa de permissão). Tirar o "Ver gráfico" ou levar para um painel de configurações.
 2. **Mesma nota, mesma força:**
