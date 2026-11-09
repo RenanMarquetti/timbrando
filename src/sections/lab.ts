@@ -1,6 +1,7 @@
 import { getEngine } from '../audio/engine';
 import { HARMONIC_COUNT, startNote, waveShape, type SynthNote, type SynthParams } from '../audio/synth';
-import { DEFAULT_PARAMS, PRESETS, WAVES, type WaveName } from '../audio/synthPresets';
+import { DEFAULT_PARAMS, measuredParams, PRESETS, WAVES, type SynthPreset, type WaveName } from '../audio/synthPresets';
+import { spectrumFor } from '../audio/instrumentSpectrum';
 import { midiToHz } from '../audio/vowels';
 import { noteName, radioGroup, toggleButton } from '../ui/controls';
 import { cssVar, fitCanvas, h } from '../ui/dom';
@@ -146,6 +147,7 @@ export const createLab = (): HTMLElement => {
   let octaveShift = 0;
   let sustainMode = false;
   let vibratoOn = false;
+  let activePreset: SynthPreset | null = null;
   const sounding = (): SynthParams => (vibratoOn ? params : { ...params, vibratoDepth: 0 });
   let held: { midi: number; note: SynthNote } | null = null;
   let lastMidi = BASE_MIDI;
@@ -196,6 +198,7 @@ export const createLab = (): HTMLElement => {
     onSelect: (name) => {
       params = { ...params, harmonics: [...WAVES[name].harmonics], signs: [...WAVES[name].signs] };
       presets.select(null);
+      activePreset = null;
       describeWave(name);
       syncControls();
     },
@@ -210,14 +213,15 @@ export const createLab = (): HTMLElement => {
         return;
       }
       params = { ...copyParams(preset.params), vibratoRate: params.vibratoRate, vibratoDepth: params.vibratoDepth };
+      activePreset = preset;
       waves.select(null);
-      waveText.replaceChildren(h('strong', {}, `${preset.label}: `), preset.origin);
-      syncControls();
+      applyNoteRecipe(lastMidi + octaveShift * 12);
     },
   });
   const markCustom = (): void => {
     waves.select(null);
     presets.select(null);
+    activePreset = null;
     describeWave(null);
   };
   const harmonicSlider = (index: number): HTMLElement => {
@@ -246,9 +250,26 @@ export const createLab = (): HTMLElement => {
     keyButtons.get(held?.midi ?? -1)?.classList.remove('down');
     held = null;
   };
+  const describePreset = (preset: SynthPreset, midi: number): void => {
+    const recipe = spectrumFor({ instrumentId: preset.id, midi });
+    const where = recipe && !recipe.inRange ? ` (fora da extensão medida: usando ${noteName(recipe.midi)})` : '';
+    waveText.replaceChildren(h('strong', {}, `${preset.label} em ${noteName(midi)}${where}: `), preset.origin);
+  };
+  const applyNoteRecipe = (midi: number): void => {
+    if (!activePreset) {
+      return;
+    }
+    params = { ...params, ...measuredParams({ instrumentId: activePreset.id, midi }) };
+    describePreset(activePreset, midi);
+    syncControls();
+  };
   const pressKey = (midi: number, button: HTMLButtonElement): (() => void) | null => {
     getEngine();
     lastMidi = midi - octaveShift * 12;
+    if (sustainMode && held?.midi !== midi) {
+      stopHeld();
+    }
+    applyNoteRecipe(midi);
     redraw();
     if (sustainMode) {
       const same = held?.midi === midi;
@@ -374,7 +395,7 @@ export const createLab = (): HTMLElement => {
     waves.element,
     waveText,
     h('h3', {}, 'Imitar um instrumento'),
-    h('p', { class: 'help' }, 'Receitas aproximadas para os instrumentos do MSA. Escolher um instrumento muda os harmônicos e os ajustes da nota (começo, meio, fim e abafamento), porque eles também fazem parte do jeito de soar de cada instrumento. O vibrato não muda e é opcional: ele é escolha de quem toca, não do instrumento.'),
+    h('p', { class: 'help' }, 'Receitas tiradas de medições de instrumentos de verdade. Elas mudam conforme a nota, como no instrumento: toque notas diferentes e repare nas barras dos harmônicos. Escolher um instrumento também muda os ajustes da nota (começo, meio, fim), porque eles fazem parte do jeito de soar dele. O vibrato não muda e é opcional: é escolha de quem toca, não do instrumento.'),
     presets.element,
     h('h3', {}, 'Harmônicos'),
     h('p', { class: 'help' }, 'Cada barra é a força de um harmônico. O 1 é a nota que você ouve (a fundamental); o 2 soa uma oitava acima, o 3 uma quinta acima disso, e assim por diante.'),

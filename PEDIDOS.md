@@ -46,3 +46,10 @@ Todos feitos na versão 0.2.0, menos o que está em "Versão futura". Cores: o M
 - Receita do órgão corrigida: antes só somava oitavas (harmônicos 1, 2, 4, 8, 16); agora soma os tubos de 8', 4', 2 ⅔' (quinta), 2' e a mistura (harmônicos 1, 2, 3, 4, 6, 8, 12, 16).
 - Ao escolher um instrumento, a caixa da onda geradora diz de onde vem a receita (perto de qual onda, ou, no órgão, que é soma de tubos).
 - Mexer nos harmônicos ou trocar a onda desmarca o instrumento.
+
+## Rodada de 09/11 (0.2.5) — feito
+- Receitas medidas: harmônicos do SHARC (11 instrumentos) e medição própria nas gravações do app (sax, órgão, piano, violão, harpa). Fontes em docs/RECEITAS.md.
+- As receitas mudam conforme a nota (flauta grave × aguda, clarinete chalumeau × clarion; tempo de decaimento do piano por nota).
+- Ataques ajustados às faixas publicadas (Luce & Clark 1965 etc.).
+- Ondas novas: "Oitavas" (harmônicos de base 2: 1, 2, 4, 8, 16) e "Quintas e oitavas" (1, 2, 3, 4, 6, 8, 12, 16).
+- Referências nos créditos (engrenagem).

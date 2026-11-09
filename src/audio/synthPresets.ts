@@ -1,6 +1,7 @@
+import { spectrumFor } from './instrumentSpectrum';
 import { HARMONIC_COUNT, type SynthParams } from './synth';
 
-export type WaveName = 'sine' | 'triangle' | 'square' | 'sawtooth';
+export type WaveName = 'sine' | 'triangle' | 'square' | 'sawtooth' | 'octaves' | 'fifths';
 
 export type Wave = {
   label: string;
@@ -23,6 +24,10 @@ const range = (build: (harmonic: number) => number): number[] => Array.from({ le
 const isOdd = (harmonic: number): boolean => harmonic % 2 === 1;
 
 const ALL_POSITIVE = range(() => 1);
+
+const OCTAVE_HARMONICS = [1, 2, 4, 8, 16];
+
+const FIFTH_AND_OCTAVE_HARMONICS = [1, 2, 3, 4, 6, 8, 12, 16];
 
 export const WAVES: Record<WaveName, Wave> = {
   sine: {
@@ -53,6 +58,20 @@ export const WAVES: Record<WaveName, Wave> = {
     what: 'Todos os harmônicos, pares e ímpares, ficando mais fracos aos poucos. O som mais rico e brilhante.',
     like: 'É a base das cordas tocadas com arco (violino, viola, violoncelo) e dos metais (trompete, trombone).',
   },
+  octaves: {
+    label: 'Oitavas',
+    harmonics: range((n) => (OCTAVE_HARMONICS.includes(n) ? 1 / Math.log2(2 * n) : 0)),
+    signs: ALL_POSITIVE,
+    what: 'Só a fundamental e as oitavas dela: harmônicos 1, 2, 4, 8 e 16 (a série de base 2). Cada parte nova é a mesma nota, mais aguda, então o som enche sem mudar de cor.',
+    like: 'Lembra um órgão com os registros de 8, 4, 2 e 1 pé puxados juntos.',
+  },
+  fifths: {
+    label: 'Quintas e oitavas',
+    harmonics: range((n) => (FIFTH_AND_OCTAVE_HARMONICS.includes(n) ? 1 / Math.sqrt(n) : 0)),
+    signs: ALL_POSITIVE,
+    what: 'As oitavas mais as quintas: harmônicos 1, 2, 3, 4, 6, 8, 12 e 16 (as séries de base 2 e 3). Mais cheio e mais brilhante que só as oitavas.',
+    like: 'É o pleno do órgão: tubos de 8, 4, 2⅔ e 2 pés, mais a mistura.',
+  },
 };
 
 const BASE: Omit<SynthParams, 'harmonics' | 'signs'> = {
@@ -70,44 +89,62 @@ const BASE: Omit<SynthParams, 'harmonics' | 'signs'> = {
 
 export const DEFAULT_PARAMS: SynthParams = { ...BASE, harmonics: WAVES.sawtooth.harmonics, signs: ALL_POSITIVE };
 
-const fromList = (values: number[]): number[] => range((n) => values[n - 1] ?? 0);
+const MEASURED_FROM_NOTE = 60;
 
-const bowed = (bump: [number, number]): number[] => range((n) => (1 / n) * (n >= bump[0] && n <= bump[1] ? 1.6 : 1));
+const SOURCE_TEXT = {
+  sharc: 'Harmônicos medidos: SHARC, de Gregory Sandell, em gravações da Universidade McGill.',
+  timbrando: 'Harmônicos e tempos medidos pelo Timbrando nas gravações do próprio app, com o mesmo método do SHARC.',
+} as const;
 
-const brass = (slope: number): number[] => range((n) => Math.max(0.04, 1 - (n - 1) * slope));
+type NoteParamsArgs = {
+  instrumentId: string;
+  midi: number;
+};
+
+/** The measured part of a recipe at one note: harmonics always, attack and decay when they were measured. */
+export const measuredParams = (args: NoteParamsArgs): Partial<SynthParams> => {
+  const recipe = spectrumFor(args);
+  if (!recipe) {
+    return {};
+  }
+  return { harmonics: [...recipe.harmonics], ...(recipe.attack === undefined ? {} : { attack: recipe.attack }), ...(recipe.decay === undefined ? {} : { decay: recipe.decay }) };
+};
 
 type PresetArgs = {
   id: string;
   label: string;
   family: string;
   origin: string;
-  params: Partial<SynthParams> & Pick<SynthParams, 'harmonics'>;
+  params: Partial<SynthParams>;
 };
 
-const preset = ({ id, label, family, origin, params }: PresetArgs): SynthPreset => ({
-  id,
-  label,
-  family,
-  origin,
-  params: { ...BASE, signs: ALL_POSITIVE, ...params },
-});
+const preset = ({ id, label, family, origin, params }: PresetArgs): SynthPreset => {
+  const source = spectrumFor({ instrumentId: id, midi: MEASURED_FROM_NOTE })?.source;
+  return {
+    id,
+    label,
+    family,
+    origin: source ? `${origin} ${SOURCE_TEXT[source]}` : origin,
+    params: { ...BASE, signs: ALL_POSITIVE, harmonics: DEFAULT_PARAMS.harmonics, ...measuredParams({ instrumentId: id, midi: MEASURED_FROM_NOTE }), ...params },
+  };
+};
 
-/** Approximate recipes for the MSA instruments plus the three extras. The ids match the real samples. */
+/** Recipes for the MSA instruments plus the three extras. Harmonics come from measurements and change with the note; the ids match the real samples. */
 export const PRESETS: SynthPreset[] = [
-  preset({ id: 'organ', label: 'Órgão', family: 'Teclados', origin: 'Não parte de nenhuma dessas ondas. Cada tubo do órgão soa quase como uma senoidal, e o organista soma tubos de tamanhos diferentes: 8 pés (harmônico 1), 4 pés (2), 2 ⅔ pés (3, a quinta), 2 pés (4) e a mistura (6, 8, 12, 16). Por isso aparecem harmônicos soltos, com buracos entre eles.', params: { harmonics: fromList([1, 0.75, 0.45, 0.5, 0.06, 0.3, 0.03, 0.3, 0.04, 0.05, 0.02, 0.18, 0.02, 0.02, 0.02, 0.12]), attack: 0.01, decay: 0.1, sustain: 1, release: 0.06, cutoff: 15000 } }),
-  preset({ id: 'violin', label: 'Violino', family: 'Cordas', origin: 'Parte do dente de serra (a corda puxada pelo arco), com um reforço nos harmônicos 3 a 6, que é o corpo do violino ressoando.', params: { harmonics: bowed([3, 6]), attack: 0.14, sustain: 0.9, release: 0.3, noise: 0.3, cutoff: 7000, vibratoRate: 6, vibratoDepth: 22 } }),
-  preset({ id: 'viola', label: 'Viola', family: 'Cordas', origin: 'Parte do dente de serra, com o reforço do corpo mais grave que o do violino (harmônicos 2 a 4).', params: { harmonics: bowed([2, 4]), attack: 0.15, sustain: 0.9, release: 0.3, noise: 0.25, cutoff: 5000, vibratoRate: 5.5, vibratoDepth: 18 } }),
-  preset({ id: 'cello', label: 'Violoncelo', family: 'Cordas', origin: 'Parte do dente de serra, com o reforço do corpo bem grave (harmônicos 2 e 3).', params: { harmonics: bowed([2, 3]), attack: 0.16, sustain: 0.9, release: 0.35, noise: 0.25, cutoff: 4000, vibratoRate: 5, vibratoDepth: 18 } }),
-  preset({ id: 'flute', label: 'Flauta', family: 'Madeiras', origin: 'Fica perto da triangular: quase só a fundamental, poucos harmônicos e bastante sopro (ruído).', params: { harmonics: fromList([1, 0.3, 0.12, 0.05, 0.03, 0.01]), attack: 0.09, decay: 0.2, sustain: 0.9, noise: 0.45, cutoff: 5000, vibratoRate: 5, vibratoDepth: 14 } }),
-  preset({ id: 'oboe', label: 'Oboé', family: 'Madeiras', origin: 'Parte do dente de serra, mas com a fundamental fraca e os harmônicos 2 a 6 fortes: é o som anasalado da palheta dupla.', params: { harmonics: fromList([0.45, 1, 0.9, 0.55, 0.5, 0.42, 0.3, 0.22, 0.18, 0.12, 0.08, 0.05]), attack: 0.04, noise: 0.15, cutoff: 6000, vibratoRate: 5.5, vibratoDepth: 10 } }),
-  preset({ id: 'bassoon', label: 'Fagote', family: 'Madeiras', origin: 'Parte do dente de serra, com a fundamental fraca e os harmônicos graves fortes, e os agudos abafados.', params: { harmonics: fromList([0.35, 1, 0.8, 0.5, 0.35, 0.2, 0.12, 0.08, 0.05]), attack: 0.05, noise: 0.1, cutoff: 2500 } }),
-  preset({ id: 'clarinet', label: 'Clarinete', family: 'Madeiras', origin: 'Fica perto da quadrada: os harmônicos ímpares fortes e os pares quase sumidos, por causa do tubo cilíndrico.', params: { harmonics: fromList([1, 0.04, 0.75, 0.04, 0.5, 0.03, 0.35, 0.02, 0.22, 0.02, 0.12, 0.01, 0.07]), attack: 0.05, sustain: 0.85, noise: 0.1, cutoff: 4000 } }),
-  preset({ id: 'saxophone', label: 'Saxofone', family: 'Madeiras', origin: 'Parte do dente de serra: todos os harmônicos, caindo devagar, por causa do tubo cônico.', params: { harmonics: fromList([1, 0.7, 0.6, 0.5, 0.45, 0.35, 0.3, 0.25, 0.2, 0.15, 0.1, 0.08]), attack: 0.05, noise: 0.12, cutoff: 5000, vibratoRate: 5, vibratoDepth: 10 } }),
-  preset({ id: 'trumpet', label: 'Trompete', family: 'Metais', origin: 'Parte do dente de serra, com os agudos fortes e um filtro que se abre no começo da nota: o brilho do metal.', params: { harmonics: brass(0.07), attack: 0.06, decay: 0.25, sustain: 0.85, cutoff: 3200, resonance: 2, filterOpening: 0.85, noise: 0.08, vibratoDepth: 6 } }),
-  preset({ id: 'french-horn', label: 'Trompa', family: 'Metais', origin: 'Parte do dente de serra, mas com os agudos bem abafados: a campana virada para trás.', params: { harmonics: fromList([1, 0.8, 0.5, 0.3, 0.2, 0.12, 0.08, 0.05]), attack: 0.08, cutoff: 1800, filterOpening: 0.5 } }),
-  preset({ id: 'trombone', label: 'Trombone', family: 'Metais', origin: 'Parte do dente de serra, com o brilho do metal um pouco mais grave que o do trompete.', params: { harmonics: brass(0.06), attack: 0.07, cutoff: 2200, resonance: 1.5, filterOpening: 0.7 } }),
-  preset({ id: 'tuba', label: 'Tuba', family: 'Metais', origin: 'Fica entre a triangular e o dente de serra: poucos harmônicos e muito abafamento.', params: { harmonics: fromList([1, 0.6, 0.35, 0.2, 0.1, 0.05]), attack: 0.09, cutoff: 900, filterOpening: 0.4 } }),
-  preset({ id: 'piano', label: 'Piano', family: 'Extras', origin: 'Parte do dente de serra, com os agudos mais fracos. O que mais muda é o começo e o fim: o martelo bate e o som vai sumindo.', params: { harmonics: fromList([1, 0.6, 0.35, 0.25, 0.15, 0.1, 0.08, 0.05, 0.03]), attack: 0.003, decay: 1.2, sustain: 0, release: 0.3, noise: 0.15, cutoff: 6000 } }),
-  preset({ id: 'guitar-nylon', label: 'Violão', family: 'Extras', origin: 'Parte do dente de serra, mas sem o harmônico 5 e seus múltiplos: depende de onde a corda é tocada. O som vai sumindo, como no piano.', params: { harmonics: range((n) => (1 / n) * Math.abs(Math.sin((n * Math.PI) / 5)) + 0.02), attack: 0.003, decay: 0.9, sustain: 0, release: 0.4, noise: 0.25, cutoff: 5000 } }),
-  preset({ id: 'harp', label: 'Harpa', family: 'Extras', origin: 'Fica perto da triangular: poucos harmônicos, com um começo de corda beliscada que vai sumindo.', params: { harmonics: fromList([1, 0.3, 0.15, 0.08, 0.04]), attack: 0.003, decay: 1.5, sustain: 0, release: 0.5, noise: 0.1, cutoff: 5000 } }),
+  preset({ id: 'organ', label: 'Órgão', family: 'Teclados', origin: 'Cada tubo soa quase como uma senoidal, e o organista soma tubos: 8 pés (harmônico 1), 4 pés (2), 2⅔ pés (3), 2 pés (4) e a mistura. Compare com as ondas "Oitavas" e "Quintas e oitavas".', params: { decay: 0.1, sustain: 1, release: 0.15 } }),
+  preset({ id: 'violin', label: 'Violino', family: 'Cordas', origin: 'Perto do dente de serra (a corda puxada pelo arco). Os picos mudam de nota para nota, porque o corpo do violino ressoa sempre nas mesmas frequências.', params: { attack: 0.06, sustain: 0.9, release: 0.3, noise: 0.25 } }),
+  preset({ id: 'viola', label: 'Viola', family: 'Cordas', origin: 'Perto do dente de serra, com o corpo maior e mais grave que o do violino. Os picos também mudam de nota para nota.', params: { attack: 0.07, sustain: 0.9, release: 0.3, noise: 0.2 } }),
+  preset({ id: 'cello', label: 'Violoncelo', family: 'Cordas', origin: 'Perto do dente de serra. No grave a fundamental domina; subindo, os harmônicos do meio ganham força.', params: { attack: 0.08, sustain: 0.9, release: 0.35, noise: 0.2 } }),
+  preset({ id: 'flute', label: 'Flauta', family: 'Madeiras', origin: 'Na região grave, o 2º harmônico é tão forte quanto a fundamental. Uma oitava acima, a flauta vira quase uma senoidal: troque de oitava e compare.', params: { attack: 0.12, decay: 0.2, sustain: 0.9, noise: 0.4 } }),
+  preset({ id: 'oboe', label: 'Oboé', family: 'Madeiras', origin: 'A fundamental é mais fraca que os harmônicos do meio: é o som anasalado da palheta dupla.', params: { attack: 0.02, noise: 0.12 } }),
+  preset({ id: 'bassoon', label: 'Fagote', family: 'Madeiras', origin: 'Fundamental fraca e agudos que caem rápido. Soa melhor uma oitava abaixo, onde fica o registro dele.', params: { attack: 0.03, noise: 0.1 } }),
+  preset({ id: 'clarinet', label: 'Clarinete', family: 'Madeiras', origin: 'No grave (o chalumeau) os harmônicos pares quase somem, como na onda quadrada. Subindo, eles voltam: desça uma oitava e compare.', params: { attack: 0.035, sustain: 0.85, noise: 0.1 } }),
+  preset({ id: 'saxophone', label: 'Saxofone', family: 'Madeiras', origin: 'Todos os harmônicos, caindo devagar, por causa do tubo cônico.', params: { attack: 0.05, noise: 0.12 } }),
+  preset({ id: 'trumpet', label: 'Trompete', family: 'Metais', origin: 'Os harmônicos mais fortes são o 3º e o 4º, não a fundamental: é o brilho do metal. O filtro se abre no começo da nota.', params: { attack: 0.03, decay: 0.25, sustain: 0.85, resonance: 1.5, filterOpening: 0.7, noise: 0.06 } }),
+  preset({ id: 'french-horn', label: 'Trompa', family: 'Metais', origin: 'Os agudos quase somem: a campana virada para trás abafa o som.', params: { attack: 0.05, filterOpening: 0.4 } }),
+  preset({ id: 'trombone', label: 'Trombone', family: 'Metais', origin: 'No grave, o pico fica nos harmônicos 3 a 6; no agudo, o som escurece.', params: { attack: 0.04, resonance: 1.2, filterOpening: 0.6 } }),
+  preset({ id: 'tuba', label: 'Tuba', family: 'Metais', origin: 'Fundamental forte e poucos harmônicos. Soa melhor uma ou duas oitavas abaixo.', params: { attack: 0.08, filterOpening: 0.3 } }),
+  preset({ id: 'piano', label: 'Piano', family: 'Extras', origin: 'Fundamental e 2º harmônico fortes. O que mais marca o piano é o tempo: o martelo bate e o som some, mais depressa nas notas agudas.', params: { sustain: 0, release: 0.3, noise: 0.1 } }),
+  preset({ id: 'guitar-nylon', label: 'Violão', family: 'Extras', origin: 'Alguns harmônicos somem, conforme o ponto da corda onde se toca. O som some mais rápido no agudo.', params: { sustain: 0, release: 0.4, noise: 0.15 } }),
+  preset({ id: 'harp', label: 'Harpa', family: 'Extras', origin: 'Os harmônicos pares quase somem: a harpa costuma ser tocada perto do meio da corda. Nos graves o som dura mais.', params: { sustain: 0, release: 0.5, noise: 0.08 } }),
 ];
