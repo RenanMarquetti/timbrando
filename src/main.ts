@@ -11,7 +11,56 @@ import { createSpectrum } from './ui/spectrum';
 
 type TabId = 'ouvir' | 'laboratorio' | 'sobre';
 
+type Theme = 'auto' | 'light' | 'dark';
+
 const APP_NAME = 'Timbrando';
+const THEME_KEY = 'timbrando-theme';
+const THEME_ORDER: Theme[] = ['auto', 'light', 'dark'];
+const THEME_ICONS: Record<Theme, string> = { auto: '◐', light: '☀', dark: '☾' };
+const THEME_LABELS: Record<Theme, string> = { auto: 'Automático', light: 'Claro', dark: 'Escuro' };
+
+const readTheme = (): Theme => {
+  try {
+    const saved = window.localStorage.getItem(THEME_KEY);
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+  } catch {
+    return 'auto';
+  }
+  return 'auto';
+};
+
+const applyTheme = (theme: Theme): void => {
+  if (theme === 'auto') {
+    delete document.documentElement.dataset.theme;
+  }
+  if (theme !== 'auto') {
+    document.documentElement.dataset.theme = theme;
+  }
+  try {
+    window.localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    return;
+  }
+};
+
+const createThemeToggle = (): HTMLButtonElement => {
+  let theme = readTheme();
+  applyTheme(theme);
+  const icon = h('span', { 'aria-hidden': 'true' }, THEME_ICONS[theme]);
+  const text = h('span', { class: 'theme-text' }, THEME_LABELS[theme]);
+  const button = h('button', { type: 'button', class: 'theme-toggle', title: 'Tema', 'aria-label': `Tema: ${THEME_LABELS[theme]}` }, icon, text);
+  button.addEventListener('click', () => {
+    theme = THEME_ORDER[(THEME_ORDER.indexOf(theme) + 1) % THEME_ORDER.length];
+    applyTheme(theme);
+    icon.textContent = THEME_ICONS[theme];
+    text.textContent = THEME_LABELS[theme];
+    button.setAttribute('aria-label', `Tema: ${THEME_LABELS[theme]}`);
+    window.dispatchEvent(new Event('resize'));
+  });
+  return button;
+};
 
 const createAbout = (): HTMLElement =>
   h(
@@ -54,7 +103,11 @@ const start = (): void => {
     laboratorio: h('main', { class: 'panel', hidden: true }, createLab(spectrum)),
     sobre: h('main', { class: 'panel', hidden: true }, createAbout()),
   };
-  const header = h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'logo', 'aria-hidden': 'true' }, '◐'), APP_NAME), createTabs(panels));
+  const header = h(
+    'div',
+    { class: 'top-band' },
+    h('header', { class: 'top' }, h('div', { class: 'brand' }, h('span', { class: 'logo', 'aria-hidden': 'true' }, '◐'), APP_NAME), h('div', { class: 'top-actions' }, createTabs(panels), createThemeToggle())),
+  );
   root.append(h('div', { class: 'sticky' }, header, meter.element), panels.ouvir, panels.laboratorio, panels.sobre);
   document.addEventListener('pointerdown', () => getEngine(), { once: true });
   const loop = (): void => {
