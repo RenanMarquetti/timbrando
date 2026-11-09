@@ -35,3 +35,9 @@ Todos feitos na versão 0.2.0, menos o que está em "Versão futura". Cores: o M
 - Forma da onda com eixos explicados (empurra/ar parado/puxa; tempo, duração do ciclo).
 - Verde da capa só na faixa do topo do tema claro; fundo da barra de intensidade visível.
 - Jogo "Quem é, sem o começo?" retirado.
+
+## Rodada de 09/11 (0.2.3) — feito
+- Tirado o "Ouvir o instrumento real".
+- A receita do instrumento continua mudando harmônicos e ajustes da nota (aprovado pelo Renan), mas não o vibrato.
+- Vibrato opcional: botão liga/desliga, começa desligado.
+- Teclado desce até o Dó 2.

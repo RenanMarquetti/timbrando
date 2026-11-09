@@ -1,6 +1,4 @@
 import { getEngine } from '../audio/engine';
-import { playBuffer, stopAll } from '../audio/player';
-import { hasNote, loadPrepared } from '../audio/samples';
 import { HARMONIC_COUNT, startNote, waveShape, type SynthNote, type SynthParams } from '../audio/synth';
 import { DEFAULT_PARAMS, PRESETS, WAVES, type WaveName } from '../audio/synthPresets';
 import { midiToHz } from '../audio/vowels';
@@ -147,9 +145,10 @@ export const createLab = (): HTMLElement => {
   let params: SynthParams = copyParams(DEFAULT_PARAMS);
   let octaveShift = 0;
   let sustainMode = false;
+  let vibratoOn = false;
+  const sounding = (): SynthParams => (vibratoOn ? params : { ...params, vibratoDepth: 0 });
   let held: { midi: number; note: SynthNote } | null = null;
   let lastMidi = BASE_MIDI;
-  let presetId: string | null = null;
   const pressed = new Set<SynthNote>();
   const harmonicInputs: HTMLInputElement[] = [];
   const sliderInputs = new Map<NumericKey, { input: HTMLInputElement; output: HTMLElement; spec: SliderSpec }>();
@@ -164,8 +163,8 @@ export const createLab = (): HTMLElement => {
     drawFilter(filterCanvas, params, midiToHz(lastMidi + octaveShift * 12));
   };
   const liveUpdate = (): void => {
-    held?.note.update(params);
-    pressed.forEach((note) => note.update(params));
+    held?.note.update(sounding());
+    pressed.forEach((note) => note.update(sounding()));
     redraw();
   };
   const syncControls = (): void => {
@@ -200,7 +199,6 @@ export const createLab = (): HTMLElement => {
       syncControls();
     },
   });
-  const realButton = h('button', { type: 'button', class: 'secondary', disabled: true }, '▶ Ouvir o instrumento real');
   const presets = radioGroup<string>({
     label: 'Imitar um instrumento',
     selected: null,
@@ -210,30 +208,12 @@ export const createLab = (): HTMLElement => {
       if (!preset) {
         return;
       }
-      presetId = id;
-      params = copyParams(preset.params);
+      params = { ...copyParams(preset.params), vibratoRate: params.vibratoRate, vibratoDepth: params.vibratoDepth };
       waves.select(null);
       describeWave(null);
-      realButton.disabled = false;
       syncControls();
     },
   });
-  const playReal = async (): Promise<void> => {
-    if (!presetId) {
-      return;
-    }
-    getEngine();
-    stopAll();
-    held = null;
-    keyButtons.forEach((button) => button.classList.remove('down'));
-    const midi = lastMidi + octaveShift * 12;
-    const target = hasNote(presetId, midi) ? midi : [57, 69, 60].find((candidate) => presetId !== null && hasNote(presetId, candidate));
-    if (target === undefined) {
-      return;
-    }
-    playBuffer({ buffer: await loadPrepared({ instrumentId: presetId, midi: target }) });
-  };
-  realButton.addEventListener('click', () => void playReal());
   const markCustom = (): void => {
     waves.select(null);
     describeWave(null);
@@ -272,12 +252,12 @@ export const createLab = (): HTMLElement => {
       const same = held?.midi === midi;
       stopHeld();
       if (!same) {
-        held = { midi, note: startNote(params, midiToHz(midi)) };
+        held = { midi, note: startNote(sounding(), midiToHz(midi)) };
         button.classList.add('down');
       }
       return null;
     }
-    const note = startNote(params, midiToHz(midi));
+    const note = startNote(sounding(), midiToHz(midi));
     pressed.add(note);
     button.classList.add('down');
     return () => {
@@ -317,15 +297,20 @@ export const createLab = (): HTMLElement => {
   };
   const octaveLabel = h('span', { class: 'muted' }, '');
   const setOctave = (shift: number): void => {
-    octaveShift = Math.max(-1, Math.min(1, shift));
+    octaveShift = Math.max(-2, Math.min(1, shift));
     octaveLabel.textContent = `${noteName(BASE_MIDI + octaveShift * 12)} a ${noteName(BASE_MIDI + 12 + octaveShift * 12)}`;
     renderKeys();
     redraw();
   };
+  const vibratoToggle = toggleButton('〰 Vibrato', (on) => {
+    vibratoOn = on;
+    liveUpdate();
+  });
+  vibratoToggle.classList.add('no-dot');
   const adjustments = h(
     'div',
     { class: 'adjustments', hidden: true },
-    h('p', { class: 'help' }, 'Estes ajustes são o jeito de tocar a nota. Ao escolher um instrumento em "Imitar um instrumento", eles mudam junto, porque cada instrumento começa, sustenta e termina a nota de um jeito.'),
+    h('p', { class: 'help' }, 'Estes ajustes são o jeito de tocar a nota. Ao escolher um instrumento em "Imitar um instrumento", eles mudam junto (menos o vibrato), porque cada instrumento começa, sustenta e termina a nota de um jeito.'),
     h(
       'div',
       { class: 'columns' },
@@ -345,7 +330,8 @@ export const createLab = (): HTMLElement => {
         filterCanvas,
         ...FILTER.map(specSlider),
         h('h3', {}, 'Vibrato'),
-        h('p', { class: 'help' }, 'Um balanço pequeno e regular na afinação, como o do cantor ou do violinista.'),
+        h('p', { class: 'help' }, 'Um balanço pequeno e regular na afinação, como o do cantor ou do violinista. É opcional: ligue o botão para usar; os instrumentos não ligam sozinhos.'),
+        vibratoToggle,
         ...VIBRATO.map(specSlider),
       ),
     ),
@@ -386,9 +372,8 @@ export const createLab = (): HTMLElement => {
     waves.element,
     waveText,
     h('h3', {}, 'Imitar um instrumento'),
-    h('p', { class: 'help' }, 'Receitas aproximadas para os instrumentos do MSA. Escolha um, toque no teclado e compare com a gravação real.'),
+    h('p', { class: 'help' }, 'Receitas aproximadas para os instrumentos do MSA. Escolher um instrumento muda os harmônicos e os ajustes da nota (começo, meio, fim e abafamento), porque eles também fazem parte do jeito de soar de cada instrumento. O vibrato não muda e é opcional: ele é escolha de quem toca, não do instrumento.'),
     presets.element,
-    h('div', { class: 'toolbar' }, realButton),
     h('h3', {}, 'Harmônicos'),
     h('p', { class: 'help' }, 'Cada barra é a força de um harmônico. O 1 é a nota que você ouve (a fundamental); o 2 soa uma oitava acima, o 3 uma quinta acima disso, e assim por diante.'),
     h('div', { class: 'harmonics' }, ...Array.from({ length: HARMONIC_COUNT }, (_, index) => harmonicSlider(index))),

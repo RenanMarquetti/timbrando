@@ -14,7 +14,7 @@ import { createSpectrum } from './ui/spectrum';
 type TabId = 'som' | 'fundamento';
 
 const APP_NAME = 'Timbrando';
-const APP_VERSION = '0.2.2';
+const APP_VERSION = '0.2.3';
 const TAB_LABELS: Record<TabId, string> = { som: 'Som', fundamento: 'Fundamento' };
 
 const turnMicOn = async (): Promise<void> => {

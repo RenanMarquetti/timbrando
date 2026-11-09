@@ -63,8 +63,8 @@ const BASE: Omit<SynthParams, 'harmonics' | 'signs'> = {
   cutoff: 12000,
   resonance: 0.7,
   filterOpening: 0,
-  vibratoRate: 5,
-  vibratoDepth: 0,
+  vibratoRate: 5.5,
+  vibratoDepth: 18,
 };
 
 export const DEFAULT_PARAMS: SynthParams = { ...BASE, harmonics: WAVES.sawtooth.harmonics, signs: ALL_POSITIVE };

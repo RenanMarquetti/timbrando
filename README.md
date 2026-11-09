@@ -18,7 +18,7 @@ Sem explicação, só a experiência. Um medidor mostra a altura (nota e Hz) e a
 
 ### Fundamento: de onde vem a diferença
 - **Espectro** fixo no topo, com cada harmônico e a sua frequência; toque no gráfico para ler qualquer ponto.
-- **Laboratório de timbres:** teclado com "sustentar nota", onda geradora (com o que cada uma é e com que instrumento se parece), receitas dos instrumentos do MSA com a gravação real para comparar, 16 harmônicos, começo/meio/fim da nota e abafamento (com gráficos explicados) e vibrato. Tudo muda ao vivo enquanto a nota soa.
+- **Laboratório de timbres:** teclado com "sustentar nota", onda geradora (com o que cada uma é e com que instrumento se parece), receitas dos instrumentos do MSA, 16 harmônicos, ajustes da nota (começo/meio/fim e abafamento, com gráficos explicados) e vibrato opcional; teclado de Dó 2 a Dó 6. Tudo muda ao vivo enquanto a nota soa.
 - **Cores do som:** um instrumento real com os controles de um técnico de som (escuro/brilhante, seco/envolvente, suave/áspero, fino/cheio), cada um explicado, e sensações prontas.
 
 ## Desenvolvimento
