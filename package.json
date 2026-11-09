@@ -1,0 +1,25 @@
+{
+  "name": "timbrando",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p . && vite build",
+    "preview": "vite preview",
+    "apk": "scripts/build-apk.sh"
+  },
+  "author": "",
+  "license": "MIT",
+  "description": "Ouvir, sentir e manipular o timbre em sala de aula",
+  "devDependencies": {
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/cli": "^7.6.10",
+    "typescript": "^5.9.3",
+    "vite": "^6.4.6"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.6.10",
+    "pitchy": "^4.1.0"
+  },
+  "private": true,
+  "type": "module"
+}

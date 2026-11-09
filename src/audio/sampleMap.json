@@ -1,0 +1,120 @@
+{
+ "violin": {
+  "A3": {
+   "file": "violin/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "violin/A4.mp3",
+   "shift": 0
+  }
+ },
+ "cello": {
+  "A3": {
+   "file": "cello/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "cello/A4.mp3",
+   "shift": 0
+  }
+ },
+ "flute": {
+  "A4": {
+   "file": "flute/A4.mp3",
+   "shift": 0
+  }
+ },
+ "clarinet": {
+  "A3": {
+   "file": "clarinet/As3.mp3",
+   "shift": -1
+  },
+  "A4": {
+   "file": "clarinet/As4.mp3",
+   "shift": -1
+  }
+ },
+ "saxophone": {
+  "A3": {
+   "file": "saxophone/As3.mp3",
+   "shift": -1
+  },
+  "A4": {
+   "file": "saxophone/A4.mp3",
+   "shift": 0
+  }
+ },
+ "trumpet": {
+  "A3": {
+   "file": "trumpet/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "trumpet/As4.mp3",
+   "shift": -1
+  }
+ },
+ "french-horn": {
+  "A3": {
+   "file": "french-horn/A3.mp3",
+   "shift": 0
+  }
+ },
+ "bassoon": {
+  "A3": {
+   "file": "bassoon/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "bassoon/A4.mp3",
+   "shift": 0
+  }
+ },
+ "piano": {
+  "A3": {
+   "file": "piano/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "piano/A4.mp3",
+   "shift": 0
+  }
+ },
+ "guitar-nylon": {
+  "A3": {
+   "file": "guitar-nylon/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "guitar-nylon/A4.mp3",
+   "shift": 0
+  }
+ },
+ "harp": {
+  "A3": {
+   "file": "harp/B3.mp3",
+   "shift": -2
+  },
+  "A4": {
+   "file": "harp/A4.mp3",
+   "shift": 0
+  }
+ },
+ "organ": {
+  "A4": {
+   "file": "organ/A3.mp3",
+   "shift": 0
+  }
+ },
+ "harmonium": {
+  "A3": {
+   "file": "harmonium/A3.mp3",
+   "shift": 0
+  },
+  "A4": {
+   "file": "harmonium/A4.mp3",
+   "shift": 0
+  }
+ }
+}

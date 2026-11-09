@@ -1,0 +1,6 @@
+{
+  "appId": "io.github.renanmarquetti.aulas",
+  "appName": "Timbrando",
+  "webDir": "dist",
+  "android": { "allowMixedContent": false }
+}
