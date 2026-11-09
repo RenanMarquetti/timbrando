@@ -41,3 +41,8 @@ Todos feitos na versão 0.2.0, menos o que está em "Versão futura". Cores: o M
 - A receita do instrumento continua mudando harmônicos e ajustes da nota (aprovado pelo Renan), mas não o vibrato.
 - Vibrato opcional: botão liga/desliga, começa desligado.
 - Teclado desce até o Dó 2.
+
+## Rodada de 09/11 (0.2.4) — feito
+- Receita do órgão corrigida: antes só somava oitavas (harmônicos 1, 2, 4, 8, 16); agora soma os tubos de 8', 4', 2 ⅔' (quinta), 2' e a mistura (harmônicos 1, 2, 3, 4, 6, 8, 12, 16).
+- Ao escolher um instrumento, a caixa da onda geradora diz de onde vem a receita (perto de qual onda, ou, no órgão, que é soma de tubos).
+- Mexer nos harmônicos ou trocar a onda desmarca o instrumento.

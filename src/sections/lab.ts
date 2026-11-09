@@ -195,6 +195,7 @@ export const createLab = (): HTMLElement => {
     }),
     onSelect: (name) => {
       params = { ...params, harmonics: [...WAVES[name].harmonics], signs: [...WAVES[name].signs] };
+      presets.select(null);
       describeWave(name);
       syncControls();
     },
@@ -210,12 +211,13 @@ export const createLab = (): HTMLElement => {
       }
       params = { ...copyParams(preset.params), vibratoRate: params.vibratoRate, vibratoDepth: params.vibratoDepth };
       waves.select(null);
-      describeWave(null);
+      waveText.replaceChildren(h('strong', {}, `${preset.label}: `), preset.origin);
       syncControls();
     },
   });
   const markCustom = (): void => {
     waves.select(null);
+    presets.select(null);
     describeWave(null);
   };
   const harmonicSlider = (index: number): HTMLElement => {
